@@ -1,6 +1,6 @@
-"""endocrinology_agent — T2DM specialist sub-agent.
+"""endocrinology_agent — T2DM specialist.
 
-Follows ADA 2025 Standards of Care for Diabetes.
+Single LLM call: analyze patient → call build_endocrinology_recommendation.
 """
 import os
 
@@ -14,18 +14,15 @@ _model = LiteLlm(model=_model_name)
 
 def build_endocrinology_recommendation(
     recommendation: str,
-    confidence: float,
-    evidence_level: str,
-    risk_flags: list[str],
+    evidence: str,
+    risks: list[str],
     citation: str,
 ) -> dict:
-    """Return the structured endocrinology recommendation."""
     return {
         "specialty": "endocrinology",
         "recommendation": recommendation,
-        "confidence": confidence,
-        "evidence_level": evidence_level,
-        "risk_flags": risk_flags,
+        "evidence": evidence,
+        "risks": risks,
         "citation": citation,
     }
 
@@ -35,25 +32,13 @@ root_agent = Agent(
     model=_model,
     description="T2DM specialist (ADA 2025).",
     instruction=(
-        "You are an endocrinology specialist for type 2 diabetes (T2DM). "
-        "You will receive a patient summary in the message. "
-        "Analyze it and call build_endocrinology_recommendation ONCE with your structured output.\n\n"
-        "Key rules:\n"
-        "- Metformin: first-line BUT contraindicated if eGFR <30\n"
-        "- SGLT2i: preferred if CKD or HF present (ADA Level A)\n"
-        "- GLP-1 RA: CV benefit, no renal dose adjustment needed\n"
-        "- Sulfonylureas (Glipizide): hypoglycemia risk in CKD (reduced clearance)\n"
-        "- TZDs (pioglitazone): fluid retention → contraindicated in HF\n"
-        "- HbA1c target: <7% for most, individualize for comorbidities\n\n"
-        "Output fields:\n"
-        "- recommendation: 2-3 sentence actionable advice\n"
-        "- confidence: 0.0-1.0\n"
-        "- evidence_level: ADA grade (A, B, C, E)\n"
-        "- risk_flags: drug interaction concerns\n"
-        "- citation: specific guideline reference\n\n"
-        "IMPORTANT: Call build_endocrinology_recommendation exactly ONCE as your ONLY action."
+        "You are an endocrinology specialist. The message contains a patient summary.\n"
+        "Analyze it for T2DM management and call build_endocrinology_recommendation.\n\n"
+        "Rules: Metformin contraindicated if eGFR<30. SGLT2i preferred if CKD/HF(Level A). "
+        "GLP-1 RA CV benefit(Level A). TZDs contraindicated in HF.\n\n"
+        "Fields: recommendation(2-3 sentences with drug/dose), evidence(e.g.'Level A'), "
+        "risks(specific safety concerns), citation(e.g.'ADA 2025 Sec 10').\n"
+        "Call build_endocrinology_recommendation as your ONLY action."
     ),
-    tools=[
-        FunctionTool(func=build_endocrinology_recommendation),
-    ],
+    tools=[FunctionTool(func=build_endocrinology_recommendation)],
 )

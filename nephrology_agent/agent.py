@@ -1,6 +1,6 @@
-"""nephrology_agent — CKD specialist sub-agent.
+"""nephrology_agent — CKD specialist.
 
-Follows KDIGO 2024 CKD Guidelines.
+Single LLM call: analyze patient → call build_nephrology_recommendation.
 """
 import os
 
@@ -14,18 +14,15 @@ _model = LiteLlm(model=_model_name)
 
 def build_nephrology_recommendation(
     recommendation: str,
-    confidence: float,
-    evidence_level: str,
-    risk_flags: list[str],
+    evidence: str,
+    risks: list[str],
     citation: str,
 ) -> dict:
-    """Return the structured nephrology recommendation."""
     return {
         "specialty": "nephrology",
         "recommendation": recommendation,
-        "confidence": confidence,
-        "evidence_level": evidence_level,
-        "risk_flags": risk_flags,
+        "evidence": evidence,
+        "risks": risks,
         "citation": citation,
     }
 
@@ -35,25 +32,13 @@ root_agent = Agent(
     model=_model,
     description="CKD specialist (KDIGO 2024).",
     instruction=(
-        "You are a nephrology specialist for chronic kidney disease (CKD). "
-        "You will receive a patient summary in the message. "
-        "Analyze it and call build_nephrology_recommendation ONCE with your structured output.\n\n"
-        "Key rules:\n"
-        "- CKD Stage 4 (eGFR 15-29): high risk, nephrotoxic drugs must be stopped\n"
-        "- Metformin: CONTRAINDICATED if eGFR <30 (lactic acidosis)\n"
-        "- SGLT2i: renoprotective, start if eGFR ≥20 (KDIGO 1A)\n"
-        "- NSAIDs: avoid (nephrotoxic)\n"
-        "- ACEi/ARB: renoprotective, but monitor K+ and Cr\n"
-        "- Glipizide: accumulation risk in CKD → hypoglycemia\n\n"
-        "Output fields:\n"
-        "- recommendation: 2-3 sentence actionable advice\n"
-        "- confidence: 0.0-1.0\n"
-        "- evidence_level: KDIGO grade (1A, 1B, 2A, 2B)\n"
-        "- risk_flags: nephrotoxicity concerns\n"
-        "- citation: specific guideline reference\n\n"
-        "IMPORTANT: Call build_nephrology_recommendation exactly ONCE as your ONLY action."
+        "You are a nephrology specialist. The message contains a patient summary.\n"
+        "Analyze it for CKD management and call build_nephrology_recommendation.\n\n"
+        "Rules: Metformin CONTRAINDICATED if eGFR<30(1A). SGLT2i if eGFR>=20(1A). "
+        "ACEi renoprotective but monitor K+/Cr(1B). NSAIDs avoid(2A).\n\n"
+        "Fields: recommendation(2-3 sentences with drug/dose), evidence(e.g.'1A'), "
+        "risks(specific safety concerns), citation(e.g.'KDIGO 2024 Ch 3').\n"
+        "Call build_nephrology_recommendation as your ONLY action."
     ),
-    tools=[
-        FunctionTool(func=build_nephrology_recommendation),
-    ],
+    tools=[FunctionTool(func=build_nephrology_recommendation)],
 )
