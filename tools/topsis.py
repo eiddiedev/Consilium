@@ -143,17 +143,20 @@ def score_topsis(
         preferences.guideline_priority,
     ]
 
-    # Step 2: Vector normalization
+    # Step 2: Min-max normalization (more stable than vector normalization
+    # when values have extreme differences, e.g. drug_interaction_risk 0.0 vs 0.35)
     num_criteria = 4
     norm = [[0.0] * num_criteria for _ in range(n)]
     for j in range(num_criteria):
-        col_sum_sq = math.sqrt(sum(raw[i][j] ** 2 for i in range(n)))
-        if col_sum_sq == 0:
+        col = [raw[i][j] for i in range(n)]
+        col_min = min(col)
+        col_max = max(col)
+        if col_max == col_min:
             for i in range(n):
-                norm[i][j] = 0
+                norm[i][j] = 1.0
         else:
             for i in range(n):
-                norm[i][j] = raw[i][j] / col_sum_sq
+                norm[i][j] = (raw[i][j] - col_min) / (col_max - col_min)
 
     # Step 3: Weighted normalized matrix
     weighted = [[norm[i][j] * weights[j] for j in range(num_criteria)] for i in range(n)]
