@@ -1,0 +1,164 @@
+{
+  "resourceType": "Bundle",
+  "id": "patient-hf-t2dm-ckd-001",
+  "type": "collection",
+  "entry": [
+    {
+      "resource": {
+        "resourceType": "Patient",
+        "id": "patient-001",
+        "name": [{"family": "Chen", "given": ["Wei"]}],
+        "gender": "male",
+        "birthDate": "1958-03-15",
+        "address": [{"city": "Boston", "state": "MA"}]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Condition",
+        "id": "cond-hf-001",
+        "code": {
+          "coding": [{"system": "http://snomed.info/sct", "code": "84114007", "display": "Heart failure"}],
+          "text": "Chronic heart failure, NYHA Class III"
+        },
+        "clinicalStatus": {"coding": [{"code": "active"}]},
+        "subject": {"reference": "Patient/patient-001"}
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Condition",
+        "id": "cond-t2dm-001",
+        "code": {
+          "coding": [{"system": "http://snomed.info/sct", "code": "44054006", "display": "Type 2 diabetes mellitus"}],
+          "text": "Type 2 diabetes mellitus"
+        },
+        "clinicalStatus": {"coding": [{"code": "active"}]},
+        "subject": {"reference": "Patient/patient-001"}
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Condition",
+        "id": "cond-ckd-001",
+        "code": {
+          "coding": [{"system": "http://snomed.info/sct", "code": "723188008", "display": "Chronic kidney disease stage 3b"}],
+          "text": "Chronic kidney disease, stage 3b (eGFR 25-29)"
+        },
+        "clinicalStatus": {"coding": [{"code": "active"}]},
+        "subject": {"reference": "Patient/patient-001"}
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "id": "obs-ef-001",
+        "code": {"coding": [{"system": "http://loinc.org", "code": "10230-1", "display": "Left ventricular ejection fraction"}], "text": "LVEF"},
+        "valueQuantity": {"value": 32, "unit": "%"},
+        "status": "final",
+        "subject": {"reference": "Patient/patient-001"},
+        "effectiveDateTime": "2026-01-15"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "id": "obs-egfr-001",
+        "code": {"coding": [{"system": "http://loinc.org", "code": "48642-3", "display": "eGFR (CKD-EPI)"}], "text": "eGFR"},
+        "valueQuantity": {"value": 28, "unit": "mL/min/1.73m2"},
+        "status": "final",
+        "subject": {"reference": "Patient/patient-001"},
+        "effectiveDateTime": "2026-02-10"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "id": "obs-hba1c-001",
+        "code": {"coding": [{"system": "http://loinc.org", "code": "4548-4", "display": "Hemoglobin A1c"}], "text": "HbA1c"},
+        "valueQuantity": {"value": 8.2, "unit": "%"},
+        "status": "final",
+        "subject": {"reference": "Patient/patient-001"},
+        "effectiveDateTime": "2026-03-01"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "id": "obs-bnp-001",
+        "code": {"coding": [{"system": "http://loinc.org", "code": "30934-4", "display": "BNP"}], "text": "BNP"},
+        "valueQuantity": {"value": 850, "unit": "pg/mL"},
+        "status": "final",
+        "subject": {"reference": "Patient/patient-001"},
+        "effectiveDateTime": "2026-03-01"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "id": "obs-creatinine-001",
+        "code": {"coding": [{"system": "http://loinc.org", "code": "2160-0", "display": "Creatinine"}], "text": "Serum Creatinine"},
+        "valueQuantity": {"value": 2.1, "unit": "mg/dL"},
+        "status": "final",
+        "subject": {"reference": "Patient/patient-001"},
+        "effectiveDateTime": "2026-02-10"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "id": "obs-potassium-001",
+        "code": {"coding": [{"system": "http://loinc.org", "code": "2823-3", "display": "Potassium"}], "text": "Serum Potassium"},
+        "valueQuantity": {"value": 5.1, "unit": "mEq/L"},
+        "status": "final",
+        "subject": {"reference": "Patient/patient-001"},
+        "effectiveDateTime": "2026-02-10"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "id": "med-acei-001",
+        "medicationCodeableConcept": {"text": "Lisinopril 10mg daily"},
+        "status": "active",
+        "subject": {"reference": "Patient/patient-001"}
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "id": "med-metformin-001",
+        "medicationCodeableConcept": {"text": "Metformin 500mg twice daily"},
+        "status": "active",
+        "subject": {"reference": "Patient/patient-001"}
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "id": "med-lasix-001",
+        "medicationCodeableConcept": {"text": "Furosemide 40mg twice daily"},
+        "status": "active",
+        "subject": {"reference": "Patient/patient-001"}
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "id": "med-asa-001",
+        "medicationCodeableConcept": {"text": "Aspirin 81mg daily"},
+        "status": "active",
+        "subject": {"reference": "Patient/patient-001"}
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "id": "med-glipizide-001",
+        "medicationCodeableConcept": {"text": "Glipizide 5mg twice daily"},
+        "status": "active",
+        "subject": {"reference": "Patient/patient-001"}
+      }
+    }
+  ]
+}

@@ -1,0 +1,49 @@
+{
+  "description": "Evidence-based weight anchors for TOPSIS scoring of HF+T2DM+CKD treatment recommendations",
+  "sources": {
+    "acc_aha_hf_2022": "ACC/AHA 2022 Heart Failure Guidelines (https://www.jacc.org/doi/10.1016/j.jacc.2021.12.012)",
+    "kdigo_ckd_2024": "KDIGO 2024 Clinical Practice Guideline for CKD (https://kdigo.org/guidelines/ckd-evaluation-and-management/)",
+    "ada_dm_2025": "ADA 2025 Standards of Care in Diabetes (https://diabetesjournals.org/care/issue/48/Supplement_1)"
+  },
+  "evidence_level_defaults": {
+    "cardiology": {
+      "acei_or_arb_in_hfref": {"level": "Class I", "score": 1.0, "source": "ACC/AHA 2022 Sec 7.3.1"},
+      "sglt2i_in_hf": {"level": "Class IIa", "score": 0.75, "source": "ACC/AHA 2022 Sec 7.3.2"},
+      "beta_blocker_in_hfref": {"level": "Class I", "score": 1.0, "source": "ACC/AHA 2022 Sec 7.3.1"},
+      "diuretic_for_congestion": {"level": "Class I", "score": 1.0, "source": "ACC/AHA 2022 Sec 7.4"},
+      "avoid_nsaid_in_hf": {"level": "Class III (Harm)", "score": 1.0, "source": "ACC/AHA 2022 Sec 7.6"},
+      "arni_preferred_over_acei": {"level": "Class IIa", "score": 0.75, "source": "ACC/AHA 2022 Sec 7.3.1"}
+    },
+    "nephrology": {
+      "sglt2i_in_ckd": {"level": "1A", "score": 1.0, "source": "KDIGO 2024 Ch 3"},
+      "acei_arb_renoprotective": {"level": "1B", "score": 0.85, "source": "KDIGO 2024 Ch 3"},
+      "avoid_nsaid_in_ckd": {"level": "2A", "score": 0.6, "source": "KDIGO 2024 Ch 4"},
+      "metformin_contraindicated_gfr30": {"level": "1A", "score": 1.0, "source": "KDIGO 2024 Ch 4"},
+      "potassium_monitoring_acei": {"level": "1B", "score": 0.85, "source": "KDIGO 2024 Ch 3"},
+      "avoid_contrast_gfr30": {"level": "2B", "score": 0.4, "source": "KDIGO 2024 Ch 4"}
+    },
+    "endocrinology": {
+      "metformin_first_line": {"level": "A", "score": 1.0, "source": "ADA 2025 Sec 9"},
+      "sglt2i_with_ckd_or_hf": {"level": "A", "score": 1.0, "source": "ADA 2025 Sec 10"},
+      "glp1ra_with_cvd": {"level": "A", "score": 1.0, "source": "ADA 2025 Sec 10"},
+      "insulin_dose_adjust_ckd": {"level": "B", "score": 0.75, "source": "ADA 2025 Sec 9"},
+      "avoid_tzd_in_hf": {"level": "B", "score": 0.75, "source": "ADA 2025 Sec 10"},
+      "hba1c_target_7": {"level": "A", "score": 1.0, "source": "ADA 2025 Sec 6"}
+    }
+  },
+  "patient_state_weight_modifiers": {
+    "description": "How patient metrics shift TOPSIS weights dynamically",
+    "egfr_below_30": {
+      "drug_interaction_risk_weight_boost": 0.10,
+      "rationale": "CKD G4/G5 patients are at extreme risk of drug toxicity — increase drug risk weight"
+    },
+    "lvef_below_40": {
+      "evidence_level_weight_boost": 0.05,
+      "rationale": "HFrEF patients benefit most from guideline-directed medical therapy — increase evidence weight"
+    },
+    "hba1c_above_8": {
+      "patient_match_weight_boost": 0.05,
+      "rationale": "Poor glycemic control needs more aggressive diabetes management — increase match weight"
+    }
+  }
+}
