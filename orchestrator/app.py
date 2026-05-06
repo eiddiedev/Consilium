@@ -5,8 +5,6 @@ Start the server with:
 
 The agent card is served publicly at:
     GET http://localhost:8003/.well-known/agent-card.json
-
-All other endpoints require an X-API-Key header (see shared/middleware.py).
 """
 import os
 
