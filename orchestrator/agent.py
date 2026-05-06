@@ -1,6 +1,6 @@
 """asm_orchestrator — Multi-specialty clinical orchestrator.
 
-Sub-agents return JSON directly (no tools = no second LLM call).
+Sub-agents return JSON directly (no tools, single LLM call each).
 Orchestrator parses results, runs deterministic TOPSIS, formats output.
 """
 import json
@@ -23,13 +23,10 @@ _model = LiteLlm(model=_model_name)
 
 
 def _extract_json(text: str) -> dict:
-    """Extract JSON from agent response (handles markdown wrapping)."""
-    # Try direct parse
     try:
         return json.loads(text)
     except (json.JSONDecodeError, TypeError):
         pass
-    # Try extracting JSON from markdown code block
     match = re.search(r'\{[^{}]*"specialty"[^{}]*\}', text, re.DOTALL)
     if match:
         try:
@@ -47,7 +44,6 @@ def _compute_patient_match(specialty: str, ctx: str) -> float:
     ef = float(ef_m.group(1)) if ef_m else None
     egfr = float(egfr_m.group(1)) if egfr_m else None
     hba1c = float(hba1c_m.group(1)) if hba1c_m else None
-
     if specialty == "cardiology" and ef is not None and ef < 40:
         score += 0.4
     elif specialty == "nephrology" and egfr is not None and egfr < 30:
@@ -85,57 +81,48 @@ def _compute_guideline_priority(evidence: str) -> float:
 
 
 def score_and_explain(cardiology: str, nephrology: str, endocrinology: str, patient: str) -> dict:
-    """Parse 3 specialist JSON responses, run TOPSIS, return ranked decision."""
     raw = [_extract_json(cardiology), _extract_json(nephrology), _extract_json(endocrinology)]
-
     recs = []
     for r in raw:
         sp = r.get("specialty", "unknown")
         ev = r.get("evidence", "")
         risks = r.get("risks", [])
         recs.append(Recommendation(
-            specialty=sp,
-            recommendation=r.get("recommendation", ""),
-            confidence=0.85,
-            evidence_level=ev,
-            evidence_score=_normalize_evidence(ev),
+            specialty=sp, recommendation=r.get("recommendation", ""),
+            confidence=0.85, evidence_level=ev, evidence_score=_normalize_evidence(ev),
             patient_match=_compute_patient_match(sp, patient),
             drug_interaction_risk=_compute_drug_risk(risks),
             guideline_priority=_compute_guideline_priority(ev),
-            risk_flags=risks,
-            citation=r.get("citation", ""),
+            risk_flags=risks, citation=r.get("citation", ""),
         ))
-
     scored = score_topsis(recs)
     results = []
     for s in scored:
         results.append({
-            "rank": s.rank,
-            "specialty": s.recommendation.specialty,
+            "rank": s.rank, "specialty": s.recommendation.specialty,
             "recommendation": s.recommendation.recommendation,
-            "total_score": s.total_score,
-            "breakdown": s.breakdown,
+            "total_score": s.total_score, "breakdown": s.breakdown,
             "evidence_level": s.recommendation.evidence_level,
             "risk_flags": s.recommendation.risk_flags,
             "citation": s.recommendation.citation,
         })
-
     return {"status": "success", "ranked_recommendations": results, "top_pick": results[0] if results else None}
 
 
 root_agent = Agent(
     name="asm_orchestrator",
     model=_model,
-    description="Multi-specialty orchestrator for HF+T2DM+CKD. Routes to 3 specialists, scores with TOPSIS.",
+    description="Multi-specialty orchestrator for HF+T2DM+CKD.",
     instruction=(
-        "You are the ASM Orchestrator. The message has a patient summary.\n\n"
-        "Steps:\n"
-        "1. Call cardiology_agent with the patient message\n"
-        "2. Call nephrology_agent with the patient message\n"
-        "3. Call endocrinology_agent with the patient message\n"
-        "4. Call score_and_explain(cardiology=response1, nephrology=response2, endocrinology=response3, patient=original_message)\n"
-        "5. Present the TOPSIS-ranked results with a unified action plan\n\n"
-        "Keep your final presentation concise. Show ranking, top pick, and action plan."
+        "Call cardiology_agent, nephrology_agent, endocrinology_agent with the patient message. "
+        "Then call score_and_explain(cardiology=r1, nephrology=r2, endocrinology=r3, patient=message).\n\n"
+        "Present results as:\n"
+        "## 🏆 TOPSIS Multi-Specialty Decision\n**Patient:** [summary]\n\n"
+        "### Ranked Recommendations\n| Rank | Specialty | Score | Key Action |\n"
+        "### Top Pick\n[drug/dose/evidence/citation]\n\n"
+        "### Unified Action Plan\n| Priority | Action | Rationale |\n\n"
+        "### Key Risks\n- [safety flags]\n\n"
+        "**Citations:** [guideline refs]\n**Disclaimer:** Advisory only."
     ),
     tools=[
         AgentTool(agent=cardiology_agent),
