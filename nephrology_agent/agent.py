@@ -1,6 +1,7 @@
 """nephrology_agent — CKD specialist.
 
 Zero tools. Single LLM call returns structured JSON directly.
+Evidence level is NOT set by LLM — computed deterministically by orchestrator.
 """
 import os
 
@@ -18,8 +19,9 @@ root_agent = Agent(
         "You are a nephrologist. The message has a patient summary.\n"
         "Reply with ONLY this JSON (no markdown, no explanation):\n"
         '{"specialty":"nephrology","recommendation":"<2 sentences with drug names+doses>",'
-        '"evidence":"<1A/1B/2A>","risks":["<risk1>","<risk2>"],'
+        '"risks":["<risk1>","<risk2>"],'
         '"citation":"KDIGO 2024 Ch 3"}\n'
-        "Rules: Metformin CONTRAINDICATED if eGFR<30(1A). SGLT2i if eGFR>=20(1A). NSAIDs avoid(2A)."
+        "Rules: Metformin CONTRAINDICATED if eGFR<30. SGLT2i if eGFR>=20. NSAIDs avoid.\n"
+        "Do NOT include an 'evidence' field — it is computed automatically."
     ),
 )

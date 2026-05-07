@@ -1,6 +1,7 @@
 """cardiology_agent — Heart Failure specialist.
 
 Zero tools. Single LLM call returns structured JSON directly.
+Evidence level is NOT set by LLM — computed deterministically by orchestrator.
 """
 import os
 
@@ -18,8 +19,9 @@ root_agent = Agent(
         "You are a cardiologist. The message has a patient summary.\n"
         "Reply with ONLY this JSON (no markdown, no explanation):\n"
         '{"specialty":"cardiology","recommendation":"<2 sentences with drug names+doses>",'
-        '"evidence":"<Class I/IIa/IIb>","risks":["<risk1>","<risk2>"],'
+        '"risks":["<risk1>","<risk2>"],'
         '"citation":"ACC/AHA 2022 Sec 7.3.1"}\n'
-        "Rules: HFrEF(EF<40%)→beta-blocker Class I+ACEi Class I+SGLT2i Class IIa. NSAIDs contraindicated."
+        "Rules: HFrEF(EF<40%)→beta-blocker+ACEi+SGLT2i. NSAIDs contraindicated.\n"
+        "Do NOT include an 'evidence' field — it is computed automatically."
     ),
 )

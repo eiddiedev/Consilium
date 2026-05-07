@@ -1,6 +1,7 @@
 """endocrinology_agent — T2DM specialist.
 
 Zero tools. Single LLM call returns structured JSON directly.
+Evidence level is NOT set by LLM — computed deterministically by orchestrator.
 """
 import os
 
@@ -18,8 +19,9 @@ root_agent = Agent(
         "You are an endocrinologist. The message has a patient summary.\n"
         "Reply with ONLY this JSON (no markdown, no explanation):\n"
         '{"specialty":"endocrinology","recommendation":"<2 sentences with drug names+doses>",'
-        '"evidence":"<Level A/B/C>","risks":["<risk1>","<risk2>"],'
+        '"risks":["<risk1>","<risk2>"],'
         '"citation":"ADA 2025 Sec 10"}\n'
-        "Rules: Metformin contraindicated if eGFR<30. SGLT2i preferred if CKD/HF(Level A). TZDs avoid in HF."
+        "Rules: Metformin contraindicated if eGFR<30. SGLT2i preferred if CKD/HF. TZDs avoid in HF.\n"
+        "Do NOT include an 'evidence' field — it is computed automatically."
     ),
 )
