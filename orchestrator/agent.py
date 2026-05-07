@@ -7,126 +7,253 @@ Total LLM calls: 2 (decide + format) instead of 5 (decide + 3 sub-agents + forma
 import json
 import os
 import re
+from collections.abc import AsyncGenerator
 
-from google.adk.agents import Agent
-from google.adk.models.lite_llm import LiteLlm
-from google.adk.tools import FunctionTool
+from dotenv import load_dotenv
+from google.adk.agents import BaseAgent
+from google.adk.agents.invocation_context import InvocationContext
+from google.adk.events import Event
+from google.genai import types
 
-from shared.fhir_hook import extract_fhir_context
 from tools.topsis import Recommendation, score_topsis
 
+load_dotenv()
+
 _model_name = os.getenv("ORCHESTRATOR_MODEL", "gemini/gemini-2.5-flash")
-_model = LiteLlm(model=_model_name, max_tokens=800)
 
 # ════════════════════════════════════════════════════════════════
 # Deterministic Evidence Score Lookup Table
 # ════════════════════════════════════════════════════════════════
 
 EVIDENCE_SCORE_TABLE = {
-    "class i level a": 1.00, "class i level b-r": 0.90, "class i level b-nr": 0.85,
-    "class i level c": 0.75, "class i": 0.85,
-    "class iia level a": 0.70, "class iia level b-r": 0.65, "class iia level b-nr": 0.60,
-    "class iia level c": 0.55, "class iia": 0.60,
-    "class iib level a": 0.45, "class iib level b": 0.35, "class iib level c": 0.25,
-    "class iib": 0.35, "class iii": 0.00,
-    "grade 1a": 1.00, "grade 1b": 0.85, "grade 1c": 0.70, "grade 1d": 0.55,
-    "grade 2a": 0.45, "grade 2b": 0.35, "grade 2c": 0.25, "grade 2d": 0.15,
-    "1a": 1.00, "1b": 0.85, "2a": 0.45,
-    "level a": 1.00, "level b": 0.75, "level c": 0.50, "level e": 0.30,
+    # ACC/AHA grades
+    "Class I Level A": 1.00,
+    "Class I Level B-R": 0.90,
+    "Class I Level B-NR": 0.85,
+    "Class I Level B": 0.85,
+    "Class I Level C": 0.75,
+    "Class I": 0.80,
+    "Class IIa Level A": 0.70,
+    "Class IIa Level B": 0.60,
+    "Class IIa Level C": 0.55,
+    "Class IIa": 0.60,
+    "Class IIb Level A": 0.45,
+    "Class IIb Level B": 0.35,
+    "Class IIb Level C": 0.25,
+    "Class IIb": 0.35,
+    "Class III": 0.05,
+    # KDIGO grades
+    "Grade 1A": 1.00,
+    "Grade 1B": 0.85,
+    "Grade 1C": 0.70,
+    "Grade 1D": 0.55,
+    "Grade 2A": 0.45,
+    "Grade 2B": 0.35,
+    "Grade 2C": 0.25,
+    "Grade 2D": 0.15,
+    # ADA levels
+    "Level A": 1.00,
+    "Level B": 0.75,
+    "Level C": 0.50,
+    "Level E": 0.30,
 }
-
-GUIDELINE_PRIORITY_TABLE = {
-    "class i": 1.0, "class iia": 0.7, "class iib": 0.4, "class iii": 0.0,
-    "grade 1a": 1.0, "grade 1b": 0.85, "grade 1c": 0.70, "grade 2a": 0.45, "grade 2b": 0.35,
-    "level a": 1.0, "level b": 0.75, "level c": 0.50, "level e": 0.30,
-}
-
-
-def _infer_evidence_from_recommendation(specialty: str, recommendation: str) -> str:
-    rec = recommendation.lower()
-    if specialty == "cardiology":
-        if any(kw in rec for kw in ["beta-blocker", "carvedilol", "metoprolol", "bisoprolol"]):
-            return "Class I"
-        if any(kw in rec for kw in ["sacubitril", "arni"]):
-            return "Class I"
-        if any(kw in rec for kw in ["sglt2", "dapagliflozin", "empagliflozin"]):
-            return "Class IIa"
-        return "Class IIa"
-    elif specialty == "nephrology":
-        if any(kw in rec for kw in ["stop metformin", "discontinue metformin", "contraindicated"]):
-            return "Grade 1A"
-        if any(kw in rec for kw in ["sglt2", "dapagliflozin", "empagliflozin"]):
-            return "Grade 1A"
-        return "Grade 1A"
-    elif specialty == "endocrinology":
-        if any(kw in rec for kw in ["sglt2", "dapagliflozin", "empagliflozin"]):
-            return "Level A"
-        if any(kw in rec for kw in ["glp-1", "semaglutide", "liraglutide"]):
-            return "Level A"
-        return "Level A"
-    return "Level B"
 
 
 def _normalize_evidence(evidence: str) -> float:
-    if not evidence:
-        return 0.50
-    e = evidence.strip().lower()
-    for key in sorted(EVIDENCE_SCORE_TABLE.keys(), key=len, reverse=True):
-        if key in e:
-            return EVIDENCE_SCORE_TABLE[key]
-    return 0.50
+    """Return a deterministic evidence score using guideline grade text only."""
+    if evidence in EVIDENCE_SCORE_TABLE:
+        return EVIDENCE_SCORE_TABLE[evidence]
+
+    e = (evidence or "").strip().lower()
+    for key, score in sorted(EVIDENCE_SCORE_TABLE.items(), key=lambda item: len(item[0]), reverse=True):
+        if key.lower() in e:
+            return score
+    return 0.55
 
 
 def _compute_guideline_priority(evidence: str) -> float:
-    if not evidence:
-        return 0.5
-    e = evidence.strip().lower()
-    for key in sorted(GUIDELINE_PRIORITY_TABLE.keys(), key=len, reverse=True):
-        if key in e:
-            return GUIDELINE_PRIORITY_TABLE[key]
-    return 0.5
+    """Use the deterministic evidence lookup as the guideline-strength proxy."""
+    return _normalize_evidence(evidence)
 
 
 def _parse_patient_values(ctx: str) -> dict:
+    ctx_lower = ctx.lower()
     ef_m = re.search(r'(?:ef|lvef)\D*(\d+)', ctx, re.IGNORECASE)
     egfr_m = re.search(r'egfr\D*(\d+)', ctx, re.IGNORECASE)
     hba1c_m = re.search(r'hba1c\D*(\d+\.?\d*)', ctx, re.IGNORECASE)
+    has_hf_positive = any(kw in ctx_lower for kw in ["hf", "heart failure", "hfref", "lvef"])
+    has_hf_negated = any(
+        re.search(pattern, ctx_lower)
+        for pattern in [
+            r"\bno\s+(?:history\s+of\s+)?(?:heart failure|hf|hfref|hfr?ef)\b",
+            r"\bwithout\s+(?:history\s+of\s+)?(?:heart failure|hf|hfref|hfr?ef)\b",
+            r"\bdenies\s+(?:history\s+of\s+)?(?:heart failure|hf|hfref|hfr?ef)\b",
+        ]
+    )
     return {
         "ef": float(ef_m.group(1)) if ef_m else None,
         "egfr": float(egfr_m.group(1)) if egfr_m else None,
         "hba1c": float(hba1c_m.group(1)) if hba1c_m else None,
-        "has_hf": any(kw in ctx.lower() for kw in ["hf", "heart failure", "hfref", "lvef"]),
-        "has_ckd": any(kw in ctx.lower() for kw in ["ckd", "kidney", "egfr", "renal"]),
-        "has_dm": any(kw in ctx.lower() for kw in ["diabetes", "t2dm", "hba1c", "diabetic"]),
-        "has_metformin": "metformin" in ctx.lower(),
-        "has_beta_blocker": any(kw in ctx.lower() for kw in ["carvedilol", "metoprolol", "bisoprolol"]),
+        "has_hf": has_hf_positive and not has_hf_negated,
+        "has_ckd": any(kw in ctx_lower for kw in ["ckd", "kidney", "egfr", "renal"]),
+        "has_diabetes": any(kw in ctx_lower for kw in ["diabetes", "t2dm", "hba1c", "diabetic"]),
+        "has_metformin": "metformin" in ctx_lower,
+        "has_beta_blocker": any(kw in ctx_lower for kw in ["carvedilol", "metoprolol", "bisoprolol"]),
     }
 
 
-def _compute_patient_match(specialty: str, ctx: str) -> float:
-    vals = _parse_patient_values(ctx)
-    score = 0.5
-    if specialty == "cardiology" and vals["has_hf"] and vals["ef"] is not None and vals["ef"] < 40:
-        score += 0.4
-    elif specialty == "nephrology" and vals["has_ckd"] and vals["egfr"] is not None and vals["egfr"] < 30:
-        score += 0.4
-    elif specialty == "endocrinology" and vals["has_dm"] and vals["hba1c"] is not None and vals["hba1c"] > 8:
-        score += 0.3
+def _parse_age_sex(ctx: str) -> str:
+    age_match = re.search(r"\b(\d{1,3})\s*(?:/|-year-old\s+)(male|female|m|f)\b", ctx, re.IGNORECASE)
+    if not age_match:
+        return "patient"
+
+    age = age_match.group(1)
+    sex_text = age_match.group(2).lower()
+    sex = "F" if sex_text.startswith("f") else "M"
+    return f"{age}{sex}"
+
+
+def _condition_summary(vals: dict) -> str:
+    parts = []
+    if vals["has_hf"]:
+        label = "HF"
+        if vals["ef"] is not None:
+            label += f"(LVEF={vals['ef']}%)"
+        parts.append(label)
+    elif vals["ef"] is None:
+        parts.append("no HF")
+
+    if vals["has_diabetes"]:
+        label = "T2DM"
+        if vals["hba1c"] is not None:
+            label += f"(HbA1c={vals['hba1c']}%)"
+        parts.append(label)
+
+    if vals["has_ckd"]:
+        label = "CKD"
+        if vals["egfr"] is not None:
+            label += f"(eGFR={vals['egfr']})"
+        parts.append(label)
+
+    return ", ".join(parts) if parts else "See patient message"
+
+
+def _compute_patient_match(
+    specialty: str,
+    has_hf: bool,
+    has_ckd: bool,
+    has_diabetes: bool,
+    ef: float | None = None,
+    egfr: float | None = None,
+    hba1c: float | None = None,
+) -> float:
+    specialty = specialty.lower()
+    score = 0.0
+
+    if specialty == "cardiology":
+        if has_hf:
+            score += 0.6
+            if ef is not None and ef < 40:
+                score += 0.3
+            if ef is not None and ef < 35:
+                score += 0.1
+        else:
+            score += 0.2
+
+    elif specialty == "nephrology":
+        if has_ckd:
+            score += 0.6
+            if egfr is not None and egfr < 30:
+                score += 0.3
+            elif egfr is not None and egfr < 60:
+                score += 0.15
+        else:
+            score += 0.1
+
+    elif specialty == "endocrinology":
+        if has_diabetes:
+            score += 0.5
+            if hba1c is not None and hba1c > 9.0:
+                score += 0.3
+            elif hba1c is not None and hba1c > 7.5:
+                score += 0.15
+        else:
+            score += 0.1
+
     return min(score, 1.0)
 
 
-def _compute_drug_risk_from_patient(ctx: str) -> float:
-    vals = _parse_patient_values(ctx)
-    risk = 0.0
-    if vals["has_metformin"] and vals["egfr"] is not None and vals["egfr"] < 30:
-        risk += 0.4
-    if vals["has_hf"] and vals["ef"] is not None and vals["ef"] < 40 and not vals["has_beta_blocker"]:
-        risk += 0.2
-    if vals["has_ckd"] and vals["egfr"] is not None and vals["egfr"] < 30:
-        risk += 0.1
-    if vals["hba1c"] is not None and vals["hba1c"] > 8 and vals["egfr"] is not None and vals["egfr"] < 30:
-        risk += 0.1
-    return min(risk, 1.0)
+def _compute_drug_risk(risks: list[str]) -> float:
+    """Return a medication safety score: higher means fewer interaction concerns."""
+    if not risks:
+        return 1.0
+
+    high_risk_keywords = [
+        "contraindicated", "absolute contraindication",
+        "lactic acidosis", "hyperkalemia", "fatal",
+    ]
+    medium_risk_keywords = [
+        "caution", "monitor", "reduce dose",
+        "hypoglycemia", "hypotension", "worsening renal",
+    ]
+
+    high_count = sum(
+        1 for r in risks
+        for kw in high_risk_keywords
+        if kw.lower() in r.lower()
+    )
+    medium_count = sum(
+        1 for r in risks
+        for kw in medium_risk_keywords
+        if kw.lower() in r.lower()
+    )
+
+    penalty = (high_count * 0.3) + (medium_count * 0.1)
+    return max(0.25, 1.0 - penalty)
+
+
+def _format_orchestration_result(result: dict) -> str:
+    patient = result["patient"]
+    rows = []
+    for rec in result["ranked_recommendations"]:
+        rows.append(
+            "| {rank} | {specialty} | {score:.3f} | {recommendation} |".format(
+                rank=rec["rank"],
+                specialty=rec["specialty"].title(),
+                score=rec["total_score"],
+                recommendation=rec["recommendation"],
+            )
+        )
+
+    top = result["top_pick"] or {}
+    consensus = result["consensus"]
+    citations = ", ".join(
+        dict.fromkeys(rec["citation"] for rec in result["ranked_recommendations"])
+    )
+
+    return (
+        "---\n"
+        "## TOPSIS Clinical Decision\n"
+        f"**Patient:** {patient['age_sex']}, {patient['conditions']}\n\n"
+        "| Rank | Specialty | Score | Recommendation |\n"
+        "|:----:|:---------:|:-----:|:---------------|\n"
+        + "\n".join(rows)
+        + "\n\n"
+        f"**Top Pick:** {top.get('specialty', 'N/A').title()} — "
+        f"{top.get('recommendation', 'No recommendation available')}\n\n"
+        "### Action Plan\n"
+        f"1. {consensus[0]}\n"
+        f"2. {consensus[1]}\n"
+        f"3. {consensus[2]}\n"
+        "4. Monitor blood pressure, potassium, creatinine/eGFR, volume status, and glucose.\n"
+        "5. Reassess tolerability and labs within 1-2 weeks after medication changes.\n\n"
+        "### Key Conflicts Resolved\n"
+        "- Metformin safety is resolved by eGFR threshold and lactic acidosis risk.\n"
+        "- HF, CKD, and diabetes priorities are ranked with deterministic TOPSIS dimensions.\n\n"
+        f"**Citations:** {citations}\n"
+        "**Disclaimer:** Advisory only. Final decisions rest with the physician.\n"
+        "---"
+    )
 
 
 def run_orchestration(patient_message: str) -> dict:
@@ -141,29 +268,46 @@ def run_orchestration(patient_message: str) -> dict:
     The LLM (orchestrator) only needs to call this ONE tool and format the output.
     """
     vals = _parse_patient_values(patient_message)
-    patient_match_scores = {
-        "cardiology": _compute_patient_match("cardiology", patient_message),
-        "nephrology": _compute_patient_match("nephrology", patient_message),
-        "endocrinology": _compute_patient_match("endocrinology", patient_message),
+    match_args = {
+        "has_hf": vals["has_hf"],
+        "has_ckd": vals["has_ckd"],
+        "has_diabetes": vals["has_diabetes"],
+        "ef": vals["ef"],
+        "egfr": vals["egfr"],
+        "hba1c": vals["hba1c"],
     }
-    drug_risk = _compute_drug_risk_from_patient(patient_message)
+    patient_match_scores = {
+        "cardiology": _compute_patient_match("cardiology", **match_args),
+        "nephrology": _compute_patient_match("nephrology", **match_args),
+        "endocrinology": _compute_patient_match("endocrinology", **match_args),
+    }
 
     # Generate specialist recommendations based on clinical data
     recs = []
 
     # Cardiology
-    cardio_rec = "Start carvedilol 3.125mg BID (titrate slowly) + dapagliflozin 10mg daily. Continue lisinopril."
+    cardio_rec = (
+        "Given T2DM+CKD and no HF, consider SGLT2i (dapagliflozin 10mg daily) "
+        "for cardiovascular and renal risk reduction. Continue lisinopril; no "
+        "HF beta-blocker is indicated solely for this presentation."
+    )
     if vals["has_hf"] and vals["ef"] is not None and vals["ef"] < 40:
         cardio_rec = f"Start carvedilol 3.125mg BID (Class I for HFrEF, EF={vals['ef']}%) + dapagliflozin 10mg daily (Class IIa). Continue lisinopril with K+/Cr monitoring."
-    cardio_ev = _infer_evidence_from_recommendation("cardiology", cardio_rec)
+    cardio_ev = "Class I Level A" if vals["has_hf"] else "Class IIa Level B"
+    if vals["has_hf"] and vals["has_ckd"]:
+        cardio_risks = ["hypotension", "hyperkalemia"]
+    elif vals["has_ckd"]:
+        cardio_risks = ["monitor"]
+    else:
+        cardio_risks = ["hypotension"]
     recs.append(Recommendation(
         specialty="cardiology", recommendation=cardio_rec,
         confidence=0.85, evidence_level=cardio_ev,
         evidence_score=_normalize_evidence(cardio_ev),
         patient_match=patient_match_scores["cardiology"],
-        drug_interaction_risk=drug_risk,
+        drug_interaction_risk=_compute_drug_risk(cardio_risks),
         guideline_priority=_compute_guideline_priority(cardio_ev),
-        risk_flags=["Hyperkalemia with ACEi+CKD", "Hypotension with BB+ACEi"],
+        risk_flags=cardio_risks,
         citation="ACC/AHA 2022 Sec 7.3.1",
     ))
 
@@ -173,15 +317,20 @@ def run_orchestration(patient_message: str) -> dict:
         nephro_rec = f"STOP metformin immediately (eGFR={vals['egfr']}, <30 threshold, Grade 1A). Start dapagliflozin 10mg daily (renoprotective, eGFR>=20). Continue lisinopril with K+/Cr monitoring."
     elif vals["egfr"] is not None and vals["egfr"] >= 30:
         nephro_rec = f"Continue metformin (eGFR={vals['egfr']}>=30, safe). Consider SGLT2i for renoprotection. Continue lisinopril."
-    nephro_ev = _infer_evidence_from_recommendation("nephrology", nephro_rec)
+    nephro_ev = "Grade 1A" if vals["egfr"] is not None and vals["egfr"] < 30 else "Grade 1B"
+    nephro_risks = (
+        ["lactic acidosis risk if metformin continued"]
+        if vals["has_metformin"] and vals["egfr"] is not None and vals["egfr"] < 30
+        else ["monitor renal function"]
+    )
     recs.append(Recommendation(
         specialty="nephrology", recommendation=nephro_rec,
         confidence=0.85, evidence_level=nephro_ev,
         evidence_score=_normalize_evidence(nephro_ev),
         patient_match=patient_match_scores["nephrology"],
-        drug_interaction_risk=drug_risk,
+        drug_interaction_risk=_compute_drug_risk(nephro_risks),
         guideline_priority=_compute_guideline_priority(nephro_ev),
-        risk_flags=["Lactic acidosis if metformin continued", "Hyperkalemia with ACEi+CKD"],
+        risk_flags=nephro_risks,
         citation="KDIGO 2024 Ch 3",
     ))
 
@@ -191,31 +340,20 @@ def run_orchestration(patient_message: str) -> dict:
         endo_rec = f"STOP metformin (eGFR={vals['egfr']}<30, contraindicated). Start dapagliflozin 10mg (Level A for T2DM+CKD). Consider GLP-1 RA (semaglutide) for additional CV benefit."
     elif vals["hba1c"] is not None and vals["hba1c"] > 8:
         endo_rec = f"HbA1c={vals['hba1c']}% above target. Start SGLT2i (dapagliflozin 10mg). Consider GLP-1 RA. Adjust current diabetes regimen."
-    endo_ev = _infer_evidence_from_recommendation("endocrinology", endo_rec)
+    endo_ev = "Level A"
+    endo_risks = ["hypoglycemia", "volume depletion"] if vals["has_diabetes"] else []
     recs.append(Recommendation(
         specialty="endocrinology", recommendation=endo_rec,
         confidence=0.85, evidence_level=endo_ev,
         evidence_score=_normalize_evidence(endo_ev),
         patient_match=patient_match_scores["endocrinology"],
-        drug_interaction_risk=drug_risk,
+        drug_interaction_risk=_compute_drug_risk(endo_risks),
         guideline_priority=_compute_guideline_priority(endo_ev),
-        risk_flags=["Hypoglycemia with sulfonylureas in CKD", "Euglycemic DKA risk with SGLT2i"],
+        risk_flags=endo_risks,
         citation="ADA 2025 Sec 10",
     ))
 
     scored = score_topsis(recs)
-
-    # Clamp scores: max 0.95, min 0.25, gap 0.2-0.4
-    raw_scores = [s.total_score for s in scored]
-    min_raw, max_raw = min(raw_scores), max(raw_scores)
-    for s in scored:
-        if max_raw == min_raw:
-            clamped = 0.60  # all equal → neutral
-        else:
-            # Normalize to [0.45, 0.85] range → gap ~0.4 max
-            normalized = (s.total_score - min_raw) / (max_raw - min_raw)
-            clamped = 0.45 + normalized * 0.40
-        s.total_score = round(max(0.25, min(0.95, clamped)), 3)
 
     results = []
     for s in scored:
@@ -228,60 +366,64 @@ def run_orchestration(patient_message: str) -> dict:
             "citation": s.recommendation.citation,
         })
 
-    return {
+    result = {
         "status": "success",
         "patient": {
-            "age_sex": "68M" if "68" in patient_message else "patient",
-            "conditions": f"HF(LVEF={vals['ef']}%), T2DM(HbA1c={vals['hba1c']}%), CKD(eGFR={vals['egfr']})" if vals['ef'] else "See patient message",
+            "age_sex": _parse_age_sex(patient_message),
+            "conditions": _condition_summary(vals),
         },
         "ranked_recommendations": results,
         "top_pick": results[0] if results else None,
         "consensus": [
             "STOP metformin" if vals["has_metformin"] and vals["egfr"] and vals["egfr"] < 30 else "Continue metformin with monitoring",
-            "START SGLT2i (dapagliflozin 10mg) — triple benefit for HF+CKD+T2DM",
-            "START carvedilol for HFrEF (Class I)" if vals["has_hf"] and vals["ef"] and vals["ef"] < 40 else "Monitor HF status",
+            (
+                "START SGLT2i (dapagliflozin 10mg) — triple benefit for HF+CKD+T2DM"
+                if vals["has_hf"]
+                else "START SGLT2i (dapagliflozin 10mg) — glycemic, renal, and cardiovascular risk benefit"
+            ),
+            "START carvedilol for HFrEF (Class I)" if vals["has_hf"] and vals["ef"] and vals["ef"] < 40 else "No HF-directed beta-blocker indicated",
         ],
     }
+    result["formatted_output"] = _format_orchestration_result(result)
+    return result
 
 
-root_agent = Agent(
+def _content_to_text(content) -> str:
+    parts = getattr(content, "parts", None) or []
+    text_parts = []
+    for part in parts:
+        text = getattr(part, "text", None)
+        if text:
+            text_parts.append(text)
+    return "\n".join(text_parts).strip()
+
+
+class DeterministicOrchestratorAgent(BaseAgent):
+    """Runs the clinical orchestration without an LLM round trip."""
+
+    async def _run_async_impl(
+        self,
+        ctx: InvocationContext,
+    ) -> AsyncGenerator[Event, None]:
+        patient_message = _content_to_text(ctx.user_content)
+        result = run_orchestration(patient_message)
+        yield Event(
+            invocation_id=ctx.invocation_id,
+            author=self.name,
+            branch=ctx.branch,
+            content=types.Content(
+                role="model",
+                parts=[types.Part(text=result["formatted_output"])],
+            ),
+            turn_complete=True,
+            custom_metadata={
+                "ranked_recommendations": result["ranked_recommendations"],
+                "model_bypassed": True,
+            },
+        )
+
+
+root_agent = DeterministicOrchestratorAgent(
     name="asm_orchestrator",
-    model=_model,
     description="Multi-specialty orchestrator for HF+T2DM+CKD.",
-    instruction=(
-        "You MUST follow this exact output format. Do not summarize conversation. "
-        "Do not refer to previous messages. Always run fresh orchestration.\n\n"
-        "WORKFLOW:\n"
-        "1. Call run_orchestration(patient_message) with the FULL patient message.\n"
-        "2. Use the EXACT scores from the result. DO NOT invent scores.\n"
-        "3. Output ONLY the template below. Max 300 words.\n\n"
-        "CRITICAL: The Score column MUST use the exact total_score values from run_orchestration. "
-        "Do NOT round or change them.\n\n"
-        "OUTPUT TEMPLATE:\n"
-        "---\n"
-        "## 🏆 TOPSIS Clinical Decision\n"
-        "**Patient:** [age/sex, conditions, key labs]\n\n"
-        "| Rank | Specialty | Score | Recommendation |\n"
-        "|:----:|:---------:|:-----:|:---------------|\n"
-        "| 🥇 | [rank 1 specialty] | [exact score] | [rank 1 recommendation] |\n"
-        "| 🥈 | [rank 2 specialty] | [exact score] | [rank 2 recommendation] |\n"
-        "| 🥉 | [rank 3 specialty] | [exact score] | [rank 3 recommendation] |\n\n"
-        "**Top Pick:** [rank 1 specialty] — [drug + dose + why]\n\n"
-        "### Action Plan\n"
-        "1. [urgent action] — [rationale]\n"
-        "2. [action] — [rationale]\n"
-        "3. [action] — [rationale]\n"
-        "4. [monitoring] — [what to check]\n"
-        "5. [follow-up] — [timeline]\n\n"
-        "### Key Conflicts Resolved\n"
-        "- [conflict 1]: [resolution]\n"
-        "- [conflict 2]: [resolution]\n\n"
-        "**Citations:** [guideline + section]\n"
-        "**Disclaimer:** Advisory only. Final decisions rest with the physician.\n"
-        "---"
-    ),
-    tools=[
-        FunctionTool(func=run_orchestration),
-    ],
-    before_model_callback=extract_fhir_context,
 )

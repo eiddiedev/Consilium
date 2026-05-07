@@ -5,8 +5,11 @@ Evidence level is NOT set by LLM — computed deterministically by orchestrator.
 """
 import os
 
+from dotenv import load_dotenv
 from google.adk.agents import Agent
 from google.adk.models.lite_llm import LiteLlm
+
+load_dotenv()
 
 _model_name = os.getenv("ENDOCRINOLOGY_AGENT_MODEL", "gemini/gemini-2.5-flash")
 _model = LiteLlm(model=_model_name, max_tokens=300)

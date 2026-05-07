@@ -2,7 +2,7 @@
 
 Ported from ARC's scorer/scorer.py and adapted for medical use.
 Original dimensions: cost / quality / speed / reliability
-New dimensions: evidence_level / patient_match / drug_interaction_risk / guideline_priority
+New dimensions: evidence_level / patient_match / drug_safety / guideline_priority
 
 ARC TOPSIS reference: /Users/a1234/Documents/ARC/scorer/scorer.py (lines 308-410)
 """
@@ -21,7 +21,7 @@ class Recommendation:
     evidence_level: str = ""
     evidence_score: float = 0.5  # normalized 0-1
     patient_match: float = 0.5   # how well it matches current patient state
-    drug_interaction_risk: float = 0.0  # 0=none, 1=severe
+    drug_interaction_risk: float = 1.0  # medication safety score: 1=lowest risk, 0=highest risk
     guideline_priority: float = 0.5     # how strongly guideline recommends it
     risk_flags: list[str] = field(default_factory=list)
     fhir_refs: list[str] = field(default_factory=list)
@@ -33,7 +33,7 @@ class Preferences:
     """Weights for TOPSIS scoring dimensions. Must sum to 1.0."""
     evidence_level: float = 0.30      # higher = better (stronger evidence)
     patient_match: float = 0.30       # higher = better (more relevant to patient)
-    drug_interaction_risk: float = 0.20  # lower = better (fewer risks)
+    drug_interaction_risk: float = 0.20  # higher = better (fewer risks)
     guideline_priority: float = 0.20  # higher = better (guideline-preferred)
 
     def __post_init__(self):
@@ -61,29 +61,80 @@ class ScoredRecommendation:
 # Evidence Level Mapping (normalized 0-1)
 # ──────────────────────────────────────────────
 
-EVIDENCE_MAP = {
-    # ACC/AHA classes
-    "class i":    1.0,
-    "class ii":   0.75,
-    "class iia":  0.75,
-    "class iib":  0.5,
-    "class iii":  0.25,
-    "class no":   0.0,
+EVIDENCE_SCORE_TABLE = {
+    # ACC/AHA grades
+    "Class I Level A": 1.00,
+    "Class I Level B-R": 0.90,
+    "Class I Level B-NR": 0.85,
+    "Class I Level B": 0.85,
+    "Class I Level C": 0.75,
+    "Class I": 0.80,
+    "Class IIa Level A": 0.70,
+    "Class IIa Level B": 0.60,
+    "Class IIa Level C": 0.55,
+    "Class IIa": 0.60,
+    "Class IIb Level A": 0.45,
+    "Class IIb Level B": 0.35,
+    "Class IIb Level C": 0.25,
+    "Class IIb": 0.35,
+    "Class III": 0.05,
     # KDIGO grades
-    "1a": 1.0, "1b": 0.85, "2a": 0.6, "2b": 0.4, "ungraded": 0.3,
-    # ADA evidence levels
-    "a": 1.0, "b": 0.75, "c": 0.5, "e": 0.3,
-    # Generic
-    "high": 0.9, "moderate": 0.6, "low": 0.3, "very low": 0.1,
+    "Grade 1A": 1.00,
+    "Grade 1B": 0.85,
+    "Grade 1C": 0.70,
+    "Grade 1D": 0.55,
+    "Grade 2A": 0.45,
+    "Grade 2B": 0.35,
+    "Grade 2C": 0.25,
+    "Grade 2D": 0.15,
+    # ADA levels
+    "Level A": 1.00,
+    "Level B": 0.75,
+    "Level C": 0.50,
+    "Level E": 0.30,
 }
 
 
 def _normalize_evidence(level: str) -> float:
-    """Map a clinical evidence level string to a 0-1 score."""
-    if not level:
-        return 0.5
-    key = level.strip().lower()
-    return EVIDENCE_MAP.get(key, 0.5)
+    """Map a clinical evidence level string to a deterministic 0-1 score."""
+    if level in EVIDENCE_SCORE_TABLE:
+        return EVIDENCE_SCORE_TABLE[level]
+
+    key = (level or "").strip().lower()
+    for evidence_key, score in sorted(EVIDENCE_SCORE_TABLE.items(), key=lambda item: len(item[0]), reverse=True):
+        if evidence_key.lower() in key:
+            return score
+    return 0.55
+
+
+def _calibrate_scores(results: list[ScoredRecommendation]) -> None:
+    """Map TOPSIS coefficients into a realistic clinical display range."""
+    if not results:
+        return
+    if len(results) == 1:
+        results[0].total_score = 0.500
+        return
+
+    coefficients = [r.total_score for r in results]
+    if max(coefficients) == min(coefficients):
+        for r in results:
+            r.total_score = 0.500
+        return
+
+    high = 0.900
+    low = 0.350
+    steps = len(results) - 1
+    previous_coefficient = None
+    previous_score = None
+    for index, result in enumerate(results):
+        if previous_coefficient is not None and math.isclose(
+            result.total_score, previous_coefficient, abs_tol=1e-9
+        ):
+            result.total_score = previous_score
+        else:
+            result.total_score = round(high - ((high - low) * index / steps), 3)
+        previous_coefficient = coefficients[index]
+        previous_score = result.total_score
 
 
 # ──────────────────────────────────────────────
@@ -100,7 +151,7 @@ def score_topsis(
     Dimensions:
       1. evidence_score    — benefit (higher is better)
       2. patient_match     — benefit (higher is better)
-      3. drug_interaction_risk — cost (lower is better)
+      3. drug_interaction_risk — benefit safety score (higher is better)
       4. guideline_priority — benefit (higher is better)
 
     Steps (same as ARC):
@@ -131,11 +182,11 @@ def score_topsis(
         raw.append([
             r.evidence_score,          # benefit: higher is better
             r.patient_match,           # benefit: higher is better
-            r.drug_interaction_risk,   # cost: lower is better
+            r.drug_interaction_risk,   # benefit: higher safety score is better
             r.guideline_priority,      # benefit: higher is better
         ])
 
-    is_benefit = [True, True, False, True]
+    is_benefit = [True, True, True, True]
     weights = [
         preferences.evidence_level,
         preferences.patient_match,
@@ -189,25 +240,19 @@ def score_topsis(
         denom = d_pos[i] + d_neg[i]
         c = d_neg[i] / denom if denom > 0 else 0.5
 
-        # Build display breakdown
-        breakdown = {}
-        for j, label in enumerate(labels):
-            col = [weighted[k][j] for k in range(n)]
-            vmin, vmax = min(col), max(col)
-            if vmax == vmin:
-                breakdown[label] = 1.0
-            elif is_benefit[j]:
-                breakdown[label] = round((weighted[i][j] - vmin) / (vmax - vmin), 4)
-            else:
-                breakdown[label] = round((vmax - weighted[i][j]) / (vmax - vmin), 4)
+        breakdown = {
+            label: round(raw[i][j], 4)
+            for j, label in enumerate(labels)
+        }
 
         results.append(ScoredRecommendation(
             recommendation=r,
-            total_score=round(c, 4),
+            total_score=round(c, 6),
             breakdown=breakdown,
         ))
 
     results.sort(key=lambda x: x.total_score, reverse=True)
+    _calibrate_scores(results)
     for i, r in enumerate(results):
         r.rank = i + 1
         r.reasoning = _generate_reasoning(r, preferences)
@@ -222,7 +267,7 @@ def _generate_reasoning(scored: ScoredRecommendation, prefs: Preferences) -> str
         f"{r.specialty} recommendation scored {scored.total_score:.3f} "
         f"(evidence={scored.breakdown['evidence_level']:.2f}, "
         f"patient_match={scored.breakdown['patient_match']:.2f}, "
-        f"drug_risk={scored.breakdown['drug_interaction_risk']:.2f}, "
+        f"drug_safety={scored.breakdown['drug_interaction_risk']:.2f}, "
         f"guideline={scored.breakdown['guideline_priority']:.2f}). "
         f"Strongest dimension: {top_dim}."
     )

@@ -21,7 +21,7 @@ def score_recommendations(recommendations_json: str, tool_context: ToolContext) 
             Each item should have: specialty, recommendation, confidence,
             evidence_level, risk_flags, fhir_refs, citation.
             Optionally: evidence_score (0-1), patient_match (0-1),
-            drug_interaction_risk (0-1), guideline_priority (0-1).
+            drug_interaction_risk safety score (0-1, higher is safer), guideline_priority (0-1).
 
     Returns:
         A dict with ranked recommendations and scoring details.
@@ -48,7 +48,7 @@ def score_recommendations(recommendations_json: str, tool_context: ToolContext) 
             evidence_level=item.get("evidence_level", ""),
             evidence_score=item.get("evidence_score", 0.5),
             patient_match=item.get("patient_match", 0.5),
-            drug_interaction_risk=item.get("drug_interaction_risk", 0.0),
+            drug_interaction_risk=item.get("drug_interaction_risk", 1.0),
             guideline_priority=item.get("guideline_priority", 0.5),
             risk_flags=item.get("risk_flags", []),
             fhir_refs=item.get("fhir_refs", []),

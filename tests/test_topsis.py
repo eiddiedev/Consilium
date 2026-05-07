@@ -12,7 +12,7 @@ from tools.topsis import Recommendation, Preferences, score_topsis
 
 
 def _make_rec(specialty, evidence_score=0.5, patient_match=0.5,
-              drug_interaction_risk=0.0, guideline_priority=0.5, **kwargs):
+              drug_interaction_risk=1.0, guideline_priority=0.5, **kwargs):
     return Recommendation(
         specialty=specialty,
         recommendation=f"Recommendation from {specialty}",
@@ -49,14 +49,14 @@ class TestTOPSISBasic:
         results = score_topsis(recs)
         assert results[0].recommendation.specialty == "cardiology"
 
-    def test_lower_drug_risk_wins(self):
-        """The rec with lower drug interaction risk should rank higher."""
+    def test_higher_drug_safety_wins(self):
+        """The rec with higher medication safety score should rank higher."""
         recs = [
             _make_rec("cardiology", drug_interaction_risk=0.8),
             _make_rec("nephrology", drug_interaction_risk=0.1),
         ]
         results = score_topsis(recs)
-        assert results[0].recommendation.specialty == "nephrology"
+        assert results[0].recommendation.specialty == "cardiology"
 
     def test_empty_list(self):
         """Empty input returns empty output."""
@@ -97,29 +97,29 @@ class TestTOPSISMedical:
     """Tests specific to the HF+T2DM+CKD clinical scenario."""
 
     def test_ckd_patient_penalizes_nephrotoxic_drugs(self):
-        """When drug interaction risk is high, that recommendation should rank lower."""
-        # Scenario: eGFR=28 → drug interaction risk is critical
+        """When medication safety is low, that recommendation should rank lower."""
+        # Scenario: eGFR=28 means nephrotoxic choices should have low safety scores.
         recs = [
             _make_rec("cardiology",
                       evidence_score=0.8,
                       patient_match=0.7,
-                      drug_interaction_risk=0.9,  # NSAID-like, high risk
+                      drug_interaction_risk=0.1,  # NSAID-like, low safety
                       guideline_priority=0.8),
             _make_rec("nephrology",
                       evidence_score=0.8,
                       patient_match=0.9,
-                      drug_interaction_risk=0.1,  # SGLT2i, low risk
+                      drug_interaction_risk=0.9,  # SGLT2i, high safety
                       guideline_priority=0.9),
             _make_rec("endocrinology",
                       evidence_score=0.7,
                       patient_match=0.6,
-                      drug_interaction_risk=0.3,  # metformin dose adjust
+                      drug_interaction_risk=0.7,  # metformin dose adjust
                       guideline_priority=0.7),
         ]
         results = score_topsis(recs)
-        # Nephrology should rank #1 (best drug risk + best patient match)
+        # Nephrology should rank #1 (best safety + best patient match)
         assert results[0].recommendation.specialty == "nephrology"
-        # Cardiology (highest drug risk) should score lower than nephrology
+        # Cardiology (lowest safety) should score lower than nephrology
         cardiology_score = next(r.total_score for r in results if r.recommendation.specialty == "cardiology")
         nephro_score = next(r.total_score for r in results if r.recommendation.specialty == "nephrology")
         assert cardiology_score < nephro_score

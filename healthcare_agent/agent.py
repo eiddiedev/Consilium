@@ -14,6 +14,7 @@ To customise:
 """
 import os
 
+from dotenv import load_dotenv
 from google.adk.agents import Agent
 from google.adk.models.lite_llm import LiteLlm
 
@@ -24,6 +25,8 @@ from shared.tools import (
     get_patient_demographics,
     get_recent_observations,
 )
+
+load_dotenv()
 
 # ── Model selection ────────────────────────────────────────────────────────────
 # Set HEALTHCARE_AGENT_MODEL in your .env to switch models.

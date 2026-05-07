@@ -13,10 +13,13 @@ To customise:
 """
 import os
 
+from dotenv import load_dotenv
 from google.adk.agents import Agent
 from google.adk.models.lite_llm import LiteLlm
 
 from .tools import get_current_datetime, look_up_icd10
+
+load_dotenv()
 
 # ── Model selection ────────────────────────────────────────────────────────────
 # Set GENERAL_AGENT_MODEL in your .env to switch models.
