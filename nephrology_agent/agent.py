@@ -8,7 +8,7 @@ from google.adk.agents import Agent
 from google.adk.models.lite_llm import LiteLlm
 
 _model_name = os.getenv("NEPHROLOGY_AGENT_MODEL", "gemini/gemini-2.5-flash")
-_model = LiteLlm(model=_model_name)
+_model = LiteLlm(model=_model_name, max_tokens=300)
 
 root_agent = Agent(
     name="nephrology_agent",

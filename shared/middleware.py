@@ -234,9 +234,14 @@ class ApiKeyMiddleware(BaseHTTPMiddleware):
                     }
 
                     # Status — map state to proto enum
+                    # CRITICAL: Strip status.message to prevent duplicate output
+                    # PO platform displays both status.message AND artifacts
                     status = result.get("status", {})
                     raw_state = status.get("state", "")
                     task["status"] = {"state": _STATE_MAP.get(raw_state, raw_state.upper())}
+                    # Also remove message from any nested status object
+                    if "message" in task.get("status", {}):
+                        del task["status"]["message"]
 
                     # Artifacts — strip "kind" from each part
                     clean_artifacts = []
@@ -249,6 +254,11 @@ class ApiKeyMiddleware(BaseHTTPMiddleware):
                         clean_artifact["parts"] = clean_parts
                         clean_artifacts.append(clean_artifact)
                     task["artifacts"] = clean_artifacts
+
+                    # Deduplicate: if artifacts exist, remove any text content from
+                    # status.message to prevent PO from displaying the same output twice.
+                    if clean_artifacts:
+                        task["status"] = {"state": task["status"]["state"]}
 
                     # Keep JSON-RPC envelope; nest task under "task" key in result
                     resp_parsed["result"] = {"task": task}

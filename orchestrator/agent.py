@@ -19,7 +19,7 @@ from shared.fhir_hook import extract_fhir_context
 from tools.topsis import Recommendation, score_topsis, _normalize_evidence
 
 _model_name = os.getenv("ORCHESTRATOR_MODEL", "gemini/gemini-2.5-flash")
-_model = LiteLlm(model=_model_name)
+_model = LiteLlm(model=_model_name, max_tokens=800)
 
 
 def _extract_json(text: str) -> dict:
