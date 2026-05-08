@@ -137,6 +137,13 @@ button {
   box-shadow: 0 16px 32px rgba(24, 185, 169, 0.25);
 }
 
+.action-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: auto;
+}
+
 .import-button {
   display: inline-flex;
   align-items: center;
@@ -171,7 +178,6 @@ button {
   justify-content: center;
   gap: 9px;
   min-height: 46px;
-  margin-top: auto;
   border: 0;
   border-radius: 18px;
   color: #ffffff;
@@ -226,6 +232,26 @@ button {
   border-radius: inherit;
   background: linear-gradient(90deg, #25d6c9, #7ee8df);
   transition: width 520ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.meter-fill.indeterminate {
+  width: 40%;
+  animation: indeterminate-slide 1.4s ease-in-out infinite;
+  background: linear-gradient(90deg, transparent, #25d6c9, #7ee8df, transparent);
+}
+
+@keyframes indeterminate-slide {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(350%); }
+}
+
+.meter-fill.complete {
+  width: 100%;
+  background: linear-gradient(90deg, #25d6c9, #18b9a9);
+}
+
+.run-meter.active {
+  background: #eafffe;
 }
 
 .console-shell {

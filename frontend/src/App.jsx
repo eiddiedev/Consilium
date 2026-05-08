@@ -13,11 +13,13 @@ import {
   Zap,
 } from 'lucide-react';
 
-const ORCHESTRATION_STEPS = [
-  { id: 'cardiology', label: 'Cardiology Agent', icon: HeartPulse, delay: 1000 },
-  { id: 'endocrinology', label: 'Endocrinology Agent', icon: Activity, delay: 3000 },
-  { id: 'nephrology', label: 'Nephrology Agent', icon: Stethoscope, delay: 5000 },
-  { id: 'topsis', label: 'TOPSIS Scoring', icon: Zap, delay: 7000 },
+const PIPELINE_STEPS = [
+  { id: 'fhir', label: 'FHIR Data Retrieval', icon: Activity },
+  { id: 'cardiology', label: 'Cardiology Agent', icon: HeartPulse },
+  { id: 'nephrology', label: 'Nephrology Agent', icon: Stethoscope },
+  { id: 'endocrinology', label: 'Endocrinology Agent', icon: Activity },
+  { id: 'topsis', label: 'TOPSIS Scoring', icon: Zap },
+  { id: 'format', label: 'Formatting Output', icon: ShieldCheck },
 ];
 
 const AGENT_URL = import.meta.env.VITE_A2A_AGENT_URL || '';
@@ -377,10 +379,8 @@ async function sendA2ARequest(patientInput) {
 function App() {
   const [selectedId, setSelectedId] = useState('patientA');
   const [isRunning, setIsRunning] = useState(false);
-  const [isWaitingForBackend, setIsWaitingForBackend] = useState(false);
-  const [completedSteps, setCompletedSteps] = useState([]);
-  const [activeStep, setActiveStep] = useState(null);
   const [hasRun, setHasRun] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
   const [importedPatient, setImportedPatient] = useState(null);
   const [liveResult, setLiveResult] = useState(null);
   const [errorBanner, setErrorBanner] = useState(
@@ -388,6 +388,7 @@ function App() {
   );
   const timersRef = useRef([]);
   const fileInputRef = useRef(null);
+  const tickRef = useRef(null);
 
   const selectedPatient = importedPatient && selectedId === 'imported'
     ? importedPatient
@@ -399,10 +400,6 @@ function App() {
   const rawAgentText = liveResult?.source === 'raw' ? liveResult.rawText : '';
   const usingDemoData = Boolean(errorBanner && hasRun && !liveResult?.ranking && !rawAgentText);
 
-  const progressPercent = useMemo(
-    () => Math.round((completedSteps.length / ORCHESTRATION_STEPS.length) * 100),
-    [completedSteps],
-  );
 
   useEffect(() => {
     return () => timersRef.current.forEach(clearTimeout);
@@ -411,10 +408,9 @@ function App() {
   function resetRunState() {
     timersRef.current.forEach(clearTimeout);
     timersRef.current = [];
+    clearInterval(tickRef.current);
     setIsRunning(false);
-    setIsWaitingForBackend(false);
-    setCompletedSteps([]);
-    setActiveStep(null);
+    setElapsed(0);
     setHasRun(false);
     setLiveResult(null);
     setErrorBanner(!AGENT_URL ? 'VITE_A2A_AGENT_URL is not configured' : A2A_API_KEY ? '' : 'VITE_A2A_API_KEY is not configured');
@@ -446,51 +442,29 @@ function App() {
     event.target.value = '';
   }
 
-  function runStatusAnimation() {
-    return new Promise((resolve) => {
-      ORCHESTRATION_STEPS.forEach((step, index) => {
-        const timer = setTimeout(() => {
-          setCompletedSteps((current) => {
-            if (current.includes(step.id)) return current;
-            return [...current, step.id];
-          });
-          const next = ORCHESTRATION_STEPS[index + 1];
-          setActiveStep(next?.id ?? null);
-          if (!next) resolve();
-        }, step.delay);
-        timersRef.current.push(timer);
-      });
-    });
-  }
-
   async function runOrchestration() {
     if (isRunning) return;
-    timersRef.current.forEach(clearTimeout);
-    timersRef.current = [];
     setHasRun(false);
     setIsRunning(true);
-    setIsWaitingForBackend(true);
-    setCompletedSteps([]);
-    setActiveStep(ORCHESTRATION_STEPS[0].id);
+    setElapsed(0);
     setLiveResult(null);
     setErrorBanner(!AGENT_URL ? 'VITE_A2A_AGENT_URL is not configured' : A2A_API_KEY ? '' : 'VITE_A2A_API_KEY is not configured');
 
-    const animationPromise = runStatusAnimation();
+    const startTime = Date.now();
+    tickRef.current = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - startTime) / 1000));
+    }, 200);
+
     try {
       const result = await sendA2ARequest(patientPrompt);
-      await animationPromise;
       setLiveResult(result);
     } catch (error) {
       console.error(error);
-      await animationPromise;
       setErrorBanner('Agent unavailable, showing demo data');
       setLiveResult(null);
     } finally {
-      timersRef.current.forEach(clearTimeout);
-      timersRef.current = [];
-      setCompletedSteps(ORCHESTRATION_STEPS.map((step) => step.id));
-      setActiveStep(null);
-      setIsWaitingForBackend(false);
+      clearInterval(tickRef.current);
+      setElapsed(Math.floor((Date.now() - startTime) / 1000));
       setIsRunning(false);
       setHasRun(true);
     }
@@ -532,28 +506,30 @@ function App() {
           </div>
         </div>
 
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".json"
-          style={{ display: 'none' }}
-          onChange={handleFileImport}
-        />
-        <button
-          className="import-button"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={isRunning}
-        >
-          <Upload size={16} />
-          Import FHIR Bundle
-        </button>
+        <div className="action-block">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".json"
+            style={{ display: 'none' }}
+            onChange={handleFileImport}
+          />
+          <button
+            className="import-button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isRunning}
+          >
+            <Upload size={16} />
+            Import FHIR Bundle
+          </button>
 
-        <button className="run-button" onClick={runOrchestration} disabled={isRunning}>
-          <Play size={17} fill="currentColor" />
-          {isWaitingForBackend ? 'Waiting for Agent...' : isRunning ? 'Orchestrating...' : 'Run Orchestration'}
-        </button>
+          <button className="run-button" onClick={runOrchestration} disabled={isRunning}>
+            <Play size={17} fill="currentColor" />
+            {isWaitingForBackend ? 'Waiting for Agent...' : isRunning ? 'Orchestrating...' : 'Run Orchestration'}
+          </button>
+        </div>
 
-        <RunMeter progressPercent={progressPercent} isRunning={isRunning} hasRun={hasRun} />
+        <RunMeter elapsed={elapsed} isRunning={isRunning} hasRun={hasRun} />
       </aside>
 
       <section className="console-shell">
@@ -577,7 +553,7 @@ function App() {
 
         <section className="clinical-grid" aria-label="Clinical workspace">
           <PatientHeader patient={selectedPatient} />
-          <AgentStatusPanel activeStep={activeStep} completedSteps={completedSteps} />
+          <AgentStatusPanel isRunning={isRunning} hasRun={hasRun} />
           <DecisionPanel
             ranking={displayRanking}
             topPick={displayTopPick}
@@ -594,15 +570,21 @@ function App() {
   );
 }
 
-function RunMeter({ progressPercent, isRunning, hasRun }) {
+function RunMeter({ elapsed, isRunning, hasRun }) {
+  const display = isRunning
+    ? `${elapsed}s`
+    : hasRun
+      ? `${elapsed}s`
+      : 'Ready';
   return (
-    <div className="run-meter" aria-label="Orchestration progress">
+    <div className={`run-meter ${isRunning ? 'active' : ''}`} aria-label="Orchestration progress">
       <div>
         <span>{isRunning ? 'Running' : hasRun ? 'Complete' : 'Ready'}</span>
-        <strong>{progressPercent}%</strong>
+        <strong>{display}</strong>
       </div>
       <div className="meter-track">
-        <div className="meter-fill" style={{ width: `${progressPercent}%` }} />
+        {isRunning && <div className="meter-fill indeterminate" />}
+        {hasRun && <div className="meter-fill complete" />}
       </div>
     </div>
   );
@@ -647,23 +629,23 @@ function PatientHeader({ patient }) {
   );
 }
 
-function AgentStatusPanel({ activeStep, completedSteps }) {
+function AgentStatusPanel({ isRunning, hasRun }) {
   return (
     <section className="panel status-panel" aria-label="Agent status panel">
       <div className="panel-heading">
         <div>
           <span className="section-kicker">Agent status</span>
-          <h2>Specialist execution</h2>
+          <h2>Pipeline</h2>
         </div>
         <Activity size={22} />
       </div>
 
       <div className="status-list">
-        {ORCHESTRATION_STEPS.map((step, index) => {
-          const complete = completedSteps.includes(step.id);
-          const active = activeStep === step.id;
-          const pending = !complete && !active;
+        {PIPELINE_STEPS.map((step, index) => {
           const StepIcon = step.icon;
+          const complete = hasRun && !isRunning;
+          const active = isRunning;
+          const pending = !hasRun && !isRunning;
           return (
             <div
               className={`status-row ${complete ? 'complete' : ''} ${active ? 'active' : ''} ${pending ? 'pending' : ''}`}
@@ -675,7 +657,7 @@ function AgentStatusPanel({ activeStep, completedSteps }) {
               </div>
               <div className="step-copy">
                 <strong>{step.label}</strong>
-                <span>{complete ? 'Complete' : active ? 'Analyzing...' : 'Waiting'}</span>
+                <span>{complete ? 'Done' : active ? 'Processing...' : 'Waiting'}</span>
               </div>
               <div className="step-state">
                 {complete ? <Check size={18} /> : active ? <CircleDot size={18} /> : <span />}
