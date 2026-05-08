@@ -1,0 +1,768 @@
+{
+  "resourceType": "Bundle",
+  "type": "transaction",
+  "entry": [
+    {
+      "fullUrl": "urn:uuid:d4b5e578-fd23-40ce-bd73-3a977caf14c9",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "d4b5e578-fd23-40ce-bd73-3a977caf14c9",
+        "meta": {
+          "profile": [
+            "http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient"
+          ]
+        },
+        "text": {
+          "status": "generated",
+          "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">Generated for Consilium demo</div>"
+        },
+        "extension": [
+          {
+            "url": "http://hl7.org/fhir/us/core/StructureDefinition/us-core-race",
+            "extension": [
+              {
+                "url": "ombCategory",
+                "valueCoding": {
+                  "system": "urn:oid:2.16.840.1.113883.6.238",
+                  "code": "2106-3",
+                  "display": "White"
+                }
+              },
+              {
+                "url": "text",
+                "valueString": "White"
+              }
+            ]
+          },
+          {
+            "url": "http://hl7.org/fhir/us/core/StructureDefinition/us-core-ethnicity",
+            "extension": [
+              {
+                "url": "ombCategory",
+                "valueCoding": {
+                  "system": "urn:oid:2.16.840.1.113883.6.238",
+                  "code": "2186-5",
+                  "display": "Not Hispanic or Latino"
+                }
+              },
+              {
+                "url": "text",
+                "valueString": "Not Hispanic or Latino"
+              }
+            ]
+          },
+          {
+            "url": "http://hl7.org/fhir/us/core/StructureDefinition/us-core-birthsex",
+            "valueCode": "M"
+          }
+        ],
+        "identifier": [
+          {
+            "system": "https://consilium.dev/patient",
+            "value": "d4b5e578-fd23-40ce-bd73-3a977caf14c9"
+          }
+        ],
+        "name": [
+          {
+            "use": "official",
+            "family": "Chen",
+            "given": [
+              "Wei"
+            ]
+          }
+        ],
+        "gender": "male",
+        "birthDate": "1958-03-15",
+        "address": [
+          {
+            "use": "home",
+            "city": "Boston",
+            "state": "MA",
+            "country": "US"
+          }
+        ]
+      },
+      "request": {
+        "method": "POST",
+        "url": "Patient",
+        "ifNoneExist": "identifier=https://consilium.dev/patient|d4b5e578-fd23-40ce-bd73-3a977caf14c9"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:f05f2486-89e7-4720-beb0-634c69fe6247",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "f05f2486-89e7-4720-beb0-634c69fe6247",
+        "meta": {
+          "profile": [
+            "http://hl7.org/fhir/us/core/StructureDefinition/us-core-condition"
+          ]
+        },
+        "clinicalStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+              "code": "active"
+            }
+          ]
+        },
+        "verificationStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+              "code": "confirmed"
+            }
+          ]
+        },
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                "code": "problem-list-item"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "84114007",
+              "display": "Heart failure"
+            }
+          ],
+          "text": "Heart failure"
+        },
+        "subject": {
+          "reference": "Patient/d4b5e578-fd23-40ce-bd73-3a977caf14c9"
+        },
+        "onsetDateTime": "2022-06-10"
+      },
+      "request": {
+        "method": "POST",
+        "url": "Condition",
+        "ifNoneExist": "identifier=https://consilium.dev/patient|f05f2486-89e7-4720-beb0-634c69fe6247"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:e99d5082-28cd-4dff-9ccb-8c402d52fba8",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "e99d5082-28cd-4dff-9ccb-8c402d52fba8",
+        "meta": {
+          "profile": [
+            "http://hl7.org/fhir/us/core/StructureDefinition/us-core-condition"
+          ]
+        },
+        "clinicalStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+              "code": "active"
+            }
+          ]
+        },
+        "verificationStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+              "code": "confirmed"
+            }
+          ]
+        },
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                "code": "problem-list-item"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "44054006",
+              "display": "Type 2 diabetes mellitus"
+            }
+          ],
+          "text": "Type 2 diabetes mellitus"
+        },
+        "subject": {
+          "reference": "Patient/d4b5e578-fd23-40ce-bd73-3a977caf14c9"
+        },
+        "onsetDateTime": "2015-03-20"
+      },
+      "request": {
+        "method": "POST",
+        "url": "Condition",
+        "ifNoneExist": "identifier=https://consilium.dev/patient|e99d5082-28cd-4dff-9ccb-8c402d52fba8"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:c8ca6e11-abee-46ea-a176-78a95b8aaa20",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "c8ca6e11-abee-46ea-a176-78a95b8aaa20",
+        "meta": {
+          "profile": [
+            "http://hl7.org/fhir/us/core/StructureDefinition/us-core-condition"
+          ]
+        },
+        "clinicalStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+              "code": "active"
+            }
+          ]
+        },
+        "verificationStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+              "code": "confirmed"
+            }
+          ]
+        },
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                "code": "problem-list-item"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "723188008",
+              "display": "Chronic kidney disease stage 4"
+            }
+          ],
+          "text": "Chronic kidney disease stage 4"
+        },
+        "subject": {
+          "reference": "Patient/d4b5e578-fd23-40ce-bd73-3a977caf14c9"
+        },
+        "onsetDateTime": "2023-01-15"
+      },
+      "request": {
+        "method": "POST",
+        "url": "Condition",
+        "ifNoneExist": "identifier=https://consilium.dev/patient|c8ca6e11-abee-46ea-a176-78a95b8aaa20"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:afed5f19-12de-4514-aec7-88a1315dec3f",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "afed5f19-12de-4514-aec7-88a1315dec3f",
+        "meta": {
+          "profile": [
+            "http://hl7.org/fhir/us/core/StructureDefinition/us-core-condition"
+          ]
+        },
+        "clinicalStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+              "code": "active"
+            }
+          ]
+        },
+        "verificationStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+              "code": "confirmed"
+            }
+          ]
+        },
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                "code": "problem-list-item"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "38341003",
+              "display": "Hypertension"
+            }
+          ],
+          "text": "Hypertension"
+        },
+        "subject": {
+          "reference": "Patient/d4b5e578-fd23-40ce-bd73-3a977caf14c9"
+        },
+        "onsetDateTime": "2010-08-01"
+      },
+      "request": {
+        "method": "POST",
+        "url": "Condition",
+        "ifNoneExist": "identifier=https://consilium.dev/patient|afed5f19-12de-4514-aec7-88a1315dec3f"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:23d329f8-b918-4773-aa2d-9eec81de85e8",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "23d329f8-b918-4773-aa2d-9eec81de85e8",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "laboratory"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "10230-1",
+              "display": "Left ventricular ejection fraction"
+            }
+          ],
+          "text": "Left ventricular ejection fraction"
+        },
+        "subject": {
+          "reference": "Patient/d4b5e578-fd23-40ce-bd73-3a977caf14c9"
+        },
+        "effectiveDateTime": "2026-01-15",
+        "valueQuantity": {
+          "value": 32,
+          "unit": "%",
+          "system": "http://unitsofmeasure.org",
+          "code": "%"
+        }
+      },
+      "request": {
+        "method": "POST",
+        "url": "Observation",
+        "ifNoneExist": "identifier=https://consilium.dev/patient|23d329f8-b918-4773-aa2d-9eec81de85e8"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:325c9905-4c49-4ada-8804-79009d9cfd7f",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "325c9905-4c49-4ada-8804-79009d9cfd7f",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "laboratory"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "48642-3",
+              "display": "eGFR"
+            }
+          ],
+          "text": "eGFR"
+        },
+        "subject": {
+          "reference": "Patient/d4b5e578-fd23-40ce-bd73-3a977caf14c9"
+        },
+        "effectiveDateTime": "2026-02-10",
+        "valueQuantity": {
+          "value": 28,
+          "unit": "mL/min/1.73m2",
+          "system": "http://unitsofmeasure.org",
+          "code": "mL/min/1.73m2"
+        }
+      },
+      "request": {
+        "method": "POST",
+        "url": "Observation",
+        "ifNoneExist": "identifier=https://consilium.dev/patient|325c9905-4c49-4ada-8804-79009d9cfd7f"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:6614dc5d-d3f5-4615-b7fe-994116c93e14",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "6614dc5d-d3f5-4615-b7fe-994116c93e14",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "laboratory"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "4548-4",
+              "display": "Hemoglobin A1c"
+            }
+          ],
+          "text": "Hemoglobin A1c"
+        },
+        "subject": {
+          "reference": "Patient/d4b5e578-fd23-40ce-bd73-3a977caf14c9"
+        },
+        "effectiveDateTime": "2026-03-01",
+        "valueQuantity": {
+          "value": 8.2,
+          "unit": "%",
+          "system": "http://unitsofmeasure.org",
+          "code": "%"
+        }
+      },
+      "request": {
+        "method": "POST",
+        "url": "Observation",
+        "ifNoneExist": "identifier=https://consilium.dev/patient|6614dc5d-d3f5-4615-b7fe-994116c93e14"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:18114fc0-7768-4676-930a-86f2fffd9e5b",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "18114fc0-7768-4676-930a-86f2fffd9e5b",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "laboratory"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "30934-4",
+              "display": "BNP"
+            }
+          ],
+          "text": "BNP"
+        },
+        "subject": {
+          "reference": "Patient/d4b5e578-fd23-40ce-bd73-3a977caf14c9"
+        },
+        "effectiveDateTime": "2026-03-01",
+        "valueQuantity": {
+          "value": 850,
+          "unit": "pg/mL",
+          "system": "http://unitsofmeasure.org",
+          "code": "pg/mL"
+        }
+      },
+      "request": {
+        "method": "POST",
+        "url": "Observation",
+        "ifNoneExist": "identifier=https://consilium.dev/patient|18114fc0-7768-4676-930a-86f2fffd9e5b"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:2a413b3c-511d-4429-a172-5c3ad49a0f23",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "2a413b3c-511d-4429-a172-5c3ad49a0f23",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "laboratory"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "2160-0",
+              "display": "Creatinine"
+            }
+          ],
+          "text": "Creatinine"
+        },
+        "subject": {
+          "reference": "Patient/d4b5e578-fd23-40ce-bd73-3a977caf14c9"
+        },
+        "effectiveDateTime": "2026-02-10",
+        "valueQuantity": {
+          "value": 2.1,
+          "unit": "mg/dL",
+          "system": "http://unitsofmeasure.org",
+          "code": "mg/dL"
+        }
+      },
+      "request": {
+        "method": "POST",
+        "url": "Observation",
+        "ifNoneExist": "identifier=https://consilium.dev/patient|2a413b3c-511d-4429-a172-5c3ad49a0f23"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:6f484bb0-4a62-45ce-ae97-ffe7545d0e99",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "6f484bb0-4a62-45ce-ae97-ffe7545d0e99",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "laboratory"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "2823-3",
+              "display": "Potassium"
+            }
+          ],
+          "text": "Potassium"
+        },
+        "subject": {
+          "reference": "Patient/d4b5e578-fd23-40ce-bd73-3a977caf14c9"
+        },
+        "effectiveDateTime": "2026-02-10",
+        "valueQuantity": {
+          "value": 5.1,
+          "unit": "mEq/L",
+          "system": "http://unitsofmeasure.org",
+          "code": "mEq/L"
+        }
+      },
+      "request": {
+        "method": "POST",
+        "url": "Observation",
+        "ifNoneExist": "identifier=https://consilium.dev/patient|6f484bb0-4a62-45ce-ae97-ffe7545d0e99"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:42d10922-f2c6-4e87-a07c-870604518ae5",
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "id": "42d10922-f2c6-4e87-a07c-870604518ae5",
+        "status": "active",
+        "intent": "order",
+        "medicationCodeableConcept": {
+          "text": "Lisinopril 10mg daily"
+        },
+        "subject": {
+          "reference": "Patient/d4b5e578-fd23-40ce-bd73-3a977caf14c9"
+        },
+        "authoredOn": "2022-06-15",
+        "dosageInstruction": [
+          {
+            "text": "Lisinopril 10mg daily"
+          }
+        ]
+      },
+      "request": {
+        "method": "POST",
+        "url": "MedicationRequest",
+        "ifNoneExist": "identifier=https://consilium.dev/patient|42d10922-f2c6-4e87-a07c-870604518ae5"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:92001465-3985-4754-8666-81bc8232488c",
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "id": "92001465-3985-4754-8666-81bc8232488c",
+        "status": "active",
+        "intent": "order",
+        "medicationCodeableConcept": {
+          "text": "Metformin 500mg twice daily"
+        },
+        "subject": {
+          "reference": "Patient/d4b5e578-fd23-40ce-bd73-3a977caf14c9"
+        },
+        "authoredOn": "2015-04-01",
+        "dosageInstruction": [
+          {
+            "text": "Metformin 500mg twice daily"
+          }
+        ]
+      },
+      "request": {
+        "method": "POST",
+        "url": "MedicationRequest",
+        "ifNoneExist": "identifier=https://consilium.dev/patient|92001465-3985-4754-8666-81bc8232488c"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:6a605383-e025-488c-b6c5-b38e03a679f3",
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "id": "6a605383-e025-488c-b6c5-b38e03a679f3",
+        "status": "active",
+        "intent": "order",
+        "medicationCodeableConcept": {
+          "text": "Furosemide 40mg twice daily"
+        },
+        "subject": {
+          "reference": "Patient/d4b5e578-fd23-40ce-bd73-3a977caf14c9"
+        },
+        "authoredOn": "2022-06-15",
+        "dosageInstruction": [
+          {
+            "text": "Furosemide 40mg twice daily"
+          }
+        ]
+      },
+      "request": {
+        "method": "POST",
+        "url": "MedicationRequest",
+        "ifNoneExist": "identifier=https://consilium.dev/patient|6a605383-e025-488c-b6c5-b38e03a679f3"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:94cae4f5-7cd9-4dd3-bb49-dea90dcfc7cb",
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "id": "94cae4f5-7cd9-4dd3-bb49-dea90dcfc7cb",
+        "status": "active",
+        "intent": "order",
+        "medicationCodeableConcept": {
+          "text": "Aspirin 81mg daily"
+        },
+        "subject": {
+          "reference": "Patient/d4b5e578-fd23-40ce-bd73-3a977caf14c9"
+        },
+        "authoredOn": "2022-06-15",
+        "dosageInstruction": [
+          {
+            "text": "Aspirin 81mg daily"
+          }
+        ]
+      },
+      "request": {
+        "method": "POST",
+        "url": "MedicationRequest",
+        "ifNoneExist": "identifier=https://consilium.dev/patient|94cae4f5-7cd9-4dd3-bb49-dea90dcfc7cb"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:10073763-4d9a-40a1-bb80-da17c37877fc",
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "id": "10073763-4d9a-40a1-bb80-da17c37877fc",
+        "status": "active",
+        "intent": "order",
+        "medicationCodeableConcept": {
+          "text": "Glipizide 5mg twice daily"
+        },
+        "subject": {
+          "reference": "Patient/d4b5e578-fd23-40ce-bd73-3a977caf14c9"
+        },
+        "authoredOn": "2018-09-01",
+        "dosageInstruction": [
+          {
+            "text": "Glipizide 5mg twice daily"
+          }
+        ]
+      },
+      "request": {
+        "method": "POST",
+        "url": "MedicationRequest",
+        "ifNoneExist": "identifier=https://consilium.dev/patient|10073763-4d9a-40a1-bb80-da17c37877fc"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:8207d3ea-0bcd-42f6-bbfa-cb83d1f454d1",
+      "resource": {
+        "resourceType": "Encounter",
+        "id": "8207d3ea-0bcd-42f6-bbfa-cb83d1f454d1",
+        "status": "finished",
+        "class": {
+          "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+          "code": "AMB",
+          "display": "ambulatory"
+        },
+        "type": [
+          {
+            "text": "Heart failure follow-up"
+          }
+        ],
+        "subject": {
+          "reference": "Patient/d4b5e578-fd23-40ce-bd73-3a977caf14c9"
+        },
+        "period": {
+          "start": "2026-03-01",
+          "end": "2026-03-01"
+        }
+      },
+      "request": {
+        "method": "POST",
+        "url": "Encounter",
+        "ifNoneExist": "identifier=https://consilium.dev/patient|8207d3ea-0bcd-42f6-bbfa-cb83d1f454d1"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:94e19d9d-a05e-4d86-a468-a0d865624528",
+      "resource": {
+        "resourceType": "Encounter",
+        "id": "94e19d9d-a05e-4d86-a468-a0d865624528",
+        "status": "finished",
+        "class": {
+          "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+          "code": "AMB",
+          "display": "ambulatory"
+        },
+        "type": [
+          {
+            "text": "Diabetes management"
+          }
+        ],
+        "subject": {
+          "reference": "Patient/d4b5e578-fd23-40ce-bd73-3a977caf14c9"
+        },
+        "period": {
+          "start": "2026-02-15",
+          "end": "2026-02-15"
+        }
+      },
+      "request": {
+        "method": "POST",
+        "url": "Encounter",
+        "ifNoneExist": "identifier=https://consilium.dev/patient|94e19d9d-a05e-4d86-a468-a0d865624528"
+      }
+    }
+  ]
+}
