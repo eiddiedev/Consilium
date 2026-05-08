@@ -560,6 +560,30 @@ h3 {
     radial-gradient(circle at 50% 52%, rgba(34, 211, 199, 0.18), transparent 8rem),
     radial-gradient(circle at 50% 24%, rgba(255, 255, 255, 0.92), transparent 4.5rem),
     linear-gradient(180deg, #eaf8fa, #f7fcfd);
+  transition: opacity 600ms ease, max-height 600ms ease, padding 600ms ease;
+}
+
+.body-visual.fade-out {
+  opacity: 0;
+  max-height: 0;
+  padding: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.decision-content {
+  transition: filter 500ms ease, opacity 500ms ease;
+}
+
+.decision-content:not(.results-visible) .ranking-list {
+  filter: blur(6px);
+  opacity: 0.4;
+}
+
+.decision-content.results-visible .ranking-list {
+  filter: blur(0);
+  opacity: 1;
+  transition: filter 700ms ease 100ms, opacity 700ms ease 100ms;
 }
 
 .clinical-plus-visual {

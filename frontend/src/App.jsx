@@ -532,23 +532,21 @@ function App() {
           </div>
         </div>
 
-        <div className="rail-section">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".json"
-            style={{ display: 'none' }}
-            onChange={handleFileImport}
-          />
-          <button
-            className="import-button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isRunning}
-          >
-            <Upload size={16} />
-            Import FHIR Bundle
-          </button>
-        </div>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".json"
+          style={{ display: 'none' }}
+          onChange={handleFileImport}
+        />
+        <button
+          className="import-button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={isRunning}
+        >
+          <Upload size={16} />
+          Import FHIR Bundle
+        </button>
 
         <button className="run-button" onClick={runOrchestration} disabled={isRunning}>
           <Play size={17} fill="currentColor" />
@@ -698,7 +696,7 @@ function AgentStatusPanel({ activeStep, completedSteps }) {
 function DecisionPanel({ ranking, topPick, rawText, hasRun, isRunning, usingDemoData }) {
   return (
     <section className={hasRun ? 'decision-panel has-results' : 'decision-panel'} aria-label="TOPSIS ranking results">
-      <div className="body-visual" aria-hidden="true">
+      <div className={`body-visual ${hasRun ? 'fade-out' : ''}`} aria-hidden="true">
         <div className="clinical-plus-visual">
           <span className="circuit-line line-a" />
           <span className="circuit-line line-b" />
@@ -711,7 +709,7 @@ function DecisionPanel({ ranking, topPick, rawText, hasRun, isRunning, usingDemo
         </div>
       </div>
 
-      <div className="decision-content">
+      <div className={`decision-content ${hasRun ? 'results-visible' : ''}`}>
         <div className="panel-heading">
           <div>
             <span className="section-kicker">TOPSIS ranking</span>
