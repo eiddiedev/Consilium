@@ -5,20 +5,22 @@ import {
   Check,
   CircleDot,
   Dna,
+  LockKeyhole,
   HeartPulse,
   Play,
   ShieldCheck,
   Stethoscope,
+  Trash2,
   Upload,
   Zap,
 } from 'lucide-react';
 
 const PIPELINE_STEPS = [
-  { id: 'fhir', label: 'FHIR Data Retrieval', icon: Activity },
-  { id: 'cardiology', label: 'Cardiology Agent', icon: HeartPulse },
-  { id: 'nephrology', label: 'Nephrology Agent', icon: Stethoscope },
-  { id: 'endocrinology', label: 'Endocrinology Agent', icon: Activity },
-  { id: 'topsis', label: 'TOPSIS Scoring', icon: Zap },
+  { id: 'fhir', label: 'FHIR Data Retrieval', icon: Activity, delay: 2000 },
+  { id: 'cardiology', label: 'Cardiology Agent', icon: HeartPulse, delay: 4000 },
+  { id: 'nephrology', label: 'Nephrology Agent', icon: Stethoscope, delay: 6000 },
+  { id: 'endocrinology', label: 'Endocrinology Agent', icon: Activity, delay: 8000 },
+  { id: 'topsis', label: 'TOPSIS Scoring', icon: Zap, delay: 10000 },
   { id: 'format', label: 'Formatting Output', icon: ShieldCheck },
 ];
 
@@ -26,6 +28,7 @@ const AGENT_URL = import.meta.env.VITE_A2A_AGENT_URL || '';
 const A2A_API_KEY = import.meta.env.VITE_A2A_API_KEY || '';
 const REQUEST_TIMEOUT_MS = 60000;
 const ORCHESTRATION_SUFFIX = 'Run the full multi-specialty orchestration.';
+const TIMED_PIPELINE_STEPS = PIPELINE_STEPS.filter((step) => Number.isFinite(step.delay));
 
 const PATIENTS = {
   patientA: {
@@ -231,6 +234,10 @@ function createRequestId() {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
+function createImportedPatientId() {
+  return `imported-${createRequestId()}`;
+}
+
 function extractAgentText(responseJson) {
   const candidates = [
     responseJson?.result?.artifacts?.[0]?.parts?.[0]?.text,
@@ -381,7 +388,8 @@ function App() {
   const [isRunning, setIsRunning] = useState(false);
   const [hasRun, setHasRun] = useState(false);
   const [elapsed, setElapsed] = useState(0);
-  const [importedPatient, setImportedPatient] = useState(null);
+  const [completedStepIds, setCompletedStepIds] = useState([]);
+  const [importedPatients, setImportedPatients] = useState([]);
   const [liveResult, setLiveResult] = useState(null);
   const [errorBanner, setErrorBanner] = useState(
     !AGENT_URL ? 'VITE_A2A_AGENT_URL is not configured' : A2A_API_KEY ? '' : 'VITE_A2A_API_KEY is not configured',
@@ -390,9 +398,13 @@ function App() {
   const fileInputRef = useRef(null);
   const tickRef = useRef(null);
 
-  const selectedPatient = importedPatient && selectedId === 'imported'
-    ? importedPatient
-    : PATIENTS[selectedId];
+  const selectedPatient = useMemo(
+    () =>
+      importedPatients.find((patient) => patient.id === selectedId) ||
+      PATIENTS[selectedId] ||
+      PATIENTS.patientA,
+    [importedPatients, selectedId],
+  );
   const patientPrompt = selectedPatient.prompt;
   const displayRanking = liveResult?.ranking || selectedPatient.ranking;
   const displayConflicts = liveResult?.conflicts || selectedPatient.conflicts;
@@ -402,15 +414,19 @@ function App() {
 
 
   useEffect(() => {
-    return () => timersRef.current.forEach(clearTimeout);
+    return () => {
+      timersRef.current.forEach(window.clearTimeout);
+      window.clearInterval(tickRef.current);
+    };
   }, []);
 
   function resetRunState() {
     timersRef.current.forEach(clearTimeout);
     timersRef.current = [];
-    clearInterval(tickRef.current);
+    window.clearInterval(tickRef.current);
     setIsRunning(false);
     setElapsed(0);
+    setCompletedStepIds([]);
     setHasRun(false);
     setLiveResult(null);
     setErrorBanner(!AGENT_URL ? 'VITE_A2A_AGENT_URL is not configured' : A2A_API_KEY ? '' : 'VITE_A2A_API_KEY is not configured');
@@ -431,9 +447,10 @@ function App() {
       try {
         const bundle = JSON.parse(e.target.result);
         const parsed = parseFhirBundle(bundle);
+        const importedId = createImportedPatientId();
         resetRunState();
-        setImportedPatient(parsed);
-        setSelectedId('imported');
+        setImportedPatients((current) => [...current, { ...parsed, id: importedId }]);
+        setSelectedId(importedId);
       } catch (err) {
         setErrorBanner(`Import failed: ${err.message}`);
       }
@@ -442,11 +459,21 @@ function App() {
     event.target.value = '';
   }
 
+  function handleImportedPatientDelete(patientId) {
+    if (isRunning) return;
+    resetRunState();
+    setImportedPatients((current) => current.filter((patient) => patient.id !== patientId));
+    if (selectedId === patientId) {
+      setSelectedId('patientA');
+    }
+  }
+
   async function runOrchestration() {
     if (isRunning) return;
     setHasRun(false);
     setIsRunning(true);
     setElapsed(0);
+    setCompletedStepIds([]);
     setLiveResult(null);
     setErrorBanner(!AGENT_URL ? 'VITE_A2A_AGENT_URL is not configured' : A2A_API_KEY ? '' : 'VITE_A2A_API_KEY is not configured');
 
@@ -454,6 +481,13 @@ function App() {
     tickRef.current = setInterval(() => {
       setElapsed(Math.floor((Date.now() - startTime) / 1000));
     }, 200);
+    timersRef.current = TIMED_PIPELINE_STEPS.map((step) =>
+      window.setTimeout(() => {
+        setCompletedStepIds((current) =>
+          current.includes(step.id) ? current : [...current, step.id],
+        );
+      }, step.delay),
+    );
 
     try {
       const result = await sendA2ARequest(patientPrompt);
@@ -463,8 +497,11 @@ function App() {
       setErrorBanner('Agent unavailable, showing demo data');
       setLiveResult(null);
     } finally {
-      clearInterval(tickRef.current);
+      window.clearInterval(tickRef.current);
       setElapsed(Math.floor((Date.now() - startTime) / 1000));
+      timersRef.current.forEach(clearTimeout);
+      timersRef.current = [];
+      setCompletedStepIds(PIPELINE_STEPS.map((step) => step.id));
       setIsRunning(false);
       setHasRun(true);
     }
@@ -495,14 +532,28 @@ function App() {
                 {preset.shortName}
               </button>
             ))}
-            {importedPatient && (
-              <button
-                className={selectedId === 'imported' ? 'preset-button active' : 'preset-button'}
-                onClick={() => handlePatientChange('imported')}
-              >
-                {importedPatient.shortName}
-              </button>
-            )}
+            {importedPatients.map((patient) => (
+              <div className="imported-patient-row" key={patient.id}>
+                <button
+                  className={patient.id === selectedId ? 'preset-button imported active' : 'preset-button imported'}
+                  onClick={() => handlePatientChange(patient.id)}
+                >
+                  {patient.shortName}
+                </button>
+                <button
+                  className="delete-patient-button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    handleImportedPatientDelete(patient.id);
+                  }}
+                  disabled={isRunning}
+                  aria-label={`Delete ${patient.shortName}`}
+                  title={`Delete ${patient.shortName}`}
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            ))}
           </div>
         </div>
 
@@ -553,7 +604,7 @@ function App() {
 
         <section className="clinical-grid" aria-label="Clinical workspace">
           <PatientHeader patient={selectedPatient} />
-          <AgentStatusPanel isRunning={isRunning} hasRun={hasRun} />
+          <AgentStatusPanel isRunning={isRunning} hasRun={hasRun} completedStepIds={completedStepIds} />
           <DecisionPanel
             ranking={displayRanking}
             topPick={displayTopPick}
@@ -629,7 +680,11 @@ function PatientHeader({ patient }) {
   );
 }
 
-function AgentStatusPanel({ isRunning, hasRun }) {
+function AgentStatusPanel({ isRunning, hasRun, completedStepIds }) {
+  const completedSet = new Set(completedStepIds);
+  const activeIndex = isRunning
+    ? PIPELINE_STEPS.findIndex((step) => !completedSet.has(step.id))
+    : -1;
   return (
     <section className="panel status-panel" aria-label="Agent status panel">
       <div className="panel-heading">
@@ -643,9 +698,9 @@ function AgentStatusPanel({ isRunning, hasRun }) {
       <div className="status-list">
         {PIPELINE_STEPS.map((step, index) => {
           const StepIcon = step.icon;
-          const complete = hasRun && !isRunning;
-          const active = isRunning;
-          const pending = !hasRun && !isRunning;
+          const complete = completedSet.has(step.id) || (hasRun && !isRunning);
+          const active = isRunning && index === activeIndex;
+          const pending = !complete && !active;
           return (
             <div
               className={`status-row ${complete ? 'complete' : ''} ${active ? 'active' : ''} ${pending ? 'pending' : ''}`}
@@ -668,7 +723,7 @@ function AgentStatusPanel({ isRunning, hasRun }) {
       </div>
 
       <div className="panel-footer">
-        <ShieldCheck size={18} />
+        <LockKeyhole size={16} />
         <span>FHIR context isolated from model prompts</span>
       </div>
     </section>
@@ -757,9 +812,6 @@ function ConflictPanel({ conflicts, hasRun, isRunning }) {
           <span className="section-kicker">Key conflicts resolved</span>
           <h2>Unified clinical action set</h2>
         </div>
-        <span className="heading-action">
-          <Zap size={21} />
-        </span>
       </div>
 
       {!hasRun && (

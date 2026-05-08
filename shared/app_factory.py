@@ -1,36 +1,33 @@
 """
 A2A application factory — shared by all agents in this repo.
 
-Each agent's app.py calls create_a2a_app() with its own name, description,
-URL, and optional FHIR extension URI.  The factory handles the AgentCard
-boilerplate, wires up the A2A transport, and optionally attaches API key
-middleware.
+The Consilium orchestrator app.py calls create_a2a_app() with its name,
+description, URL, and FHIR extension URI. The factory handles the AgentCard
+boilerplate, wires up the A2A transport, and attaches API key middleware.
 
 Security modes
 ──────────────
   require_api_key=True  (default)
       Agent card advertises X-API-Key as required.
       All requests except /.well-known/agent-card.json are blocked without a
-      valid key.  Use this for agents that handle sensitive data (e.g. FHIR).
+      valid key.  Use this for agents that handle sensitive data.
 
   require_api_key=False
-      Agent card declares no security scheme — any caller can send requests
-      without a key.  The agent card itself makes this discoverable so Prompt
-      Opinion and other callers know no key is needed.  Use this for public or
-      read-only utility agents (e.g. ICD-10 lookups, date/time queries).
+      Agent card declares no security scheme. Consilium does not use this mode
+      in production, but the factory keeps it for local experiments.
 
 Usage:
     from shared.app_factory import create_a2a_app
     from .agent import root_agent
 
-    # Authenticated agent (requires X-API-Key) with FHIR + SMART scopes
+    # Authenticated orchestrator (requires X-API-Key) with FHIR + SMART scopes
     a2a_app = create_a2a_app(
         agent=root_agent,
-        name="healthcare_fhir_agent",
-        description="Queries patient FHIR data.",
-        url="http://localhost:8001",
-        port=8001,
-        fhir_extension_uri="https://your-workspace/schemas/a2a/v1/fhir-context",
+        name="asm_orchestrator",
+        description="Ranks multi-specialty recommendations for complex chronic disease patients.",
+        url="http://localhost:8003",
+        port=8003,
+        fhir_extension_uri="https://app.promptopinion.ai/schemas/a2a/v1/fhir-context",
         fhir_scopes=[
             {"name": "patient/Patient.rs",           "required": True},
             {"name": "patient/MedicationRequest.rs", "required": True},
@@ -38,16 +35,6 @@ Usage:
             {"name": "patient/Observation.rs",       "required": True},
         ],
         require_api_key=True,   # default — can be omitted
-    )
-
-    # Anonymous agent (no key needed)
-    a2a_app = create_a2a_app(
-        agent=root_agent,
-        name="general_agent",
-        description="Public utility agent.",
-        url="http://localhost:8002",
-        port=8002,
-        require_api_key=False,
     )
 """
 from typing import Any
@@ -60,6 +47,7 @@ from a2a.types import (
 )
 from google.adk.a2a.utils.agent_to_a2a import to_a2a
 from pydantic import Field
+from fastapi.middleware.cors import CORSMiddleware
 
 
 class AgentExtensionV1(AgentExtension):
@@ -136,8 +124,8 @@ def create_a2a_app(
     """
     # Optional FHIR extension — only included when the agent supports it.
     # Uses AgentExtensionV1 to add `params` (SMART scopes) to the serialised JSON.
-    # Per the Po spec the extension-level `required` is false — individual scopes
-    # carry their own required flag inside params.scopes.
+    # Prompt Opinion recognizes the official FHIR context extension as an
+    # interactive consent panel when the extension itself is required.
     extensions = []
     if fhir_extension_uri:
         extension_params = None
@@ -147,7 +135,7 @@ def create_a2a_app(
             AgentExtensionV1(
                 uri=fhir_extension_uri,
                 description="FHIR context allowing the agent to query a FHIR server securely",
-                required=False,
+                required=True,
                 params=extension_params,
             )
         ]
@@ -206,5 +194,12 @@ def create_a2a_app(
     # Only attach the key-enforcement middleware for authenticated agents.
     if require_api_key:
         app.add_middleware(ApiKeyMiddleware)
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
     return app

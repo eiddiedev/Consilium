@@ -24,9 +24,15 @@ ENV/
 # ── Distribution / packaging ────────────────────────────────────────────────────
 build/
 dist/
+frontend/dist/
 *.egg-info/
 *.egg
 MANIFEST
+
+# ── Node / frontend ─────────────────────────────────────────────────────────────
+node_modules/
+frontend/node_modules/
+npm-debug.log*
 
 # ── Testing ─────────────────────────────────────────────────────────────────────
 .pytest_cache/

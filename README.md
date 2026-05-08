@@ -1,175 +1,269 @@
 # Consilium
 
 > **Multi-specialty clinical decision support for complex chronic disease patients.**
-> Three specialist agents. One TOPSIS-ranked decision. Full clinical transparency.
+> Consilium reduces guideline conflict, medication-safety risk, and physician decision fatigue by combining specialist LLM agents with deterministic clinical ranking.
 
-**Built for [Agents Assemble: The Healthcare AI Endgame](https://agents-assemble.devpost.com/)**
+**Built for [Agents Assemble: The Healthcare AI Endgame](https://agents-assemble.devpost.com/).**
 
 ---
 
-## The Problem
+## Problem
 
-A patient with **heart failure + type 2 diabetes + chronic kidney disease** sees three specialists. Each recommends treatments based on their own guidelines — but the recommendations often **contradict each other**.
+Patients with heart failure, diabetes, and chronic kidney disease often receive recommendations from multiple specialists whose guidelines collide:
 
-- Cardiology says: increase diuretics
-- Nephrology says: hold diuretics (eGFR too low)
-- Endocrinology says: continue Metformin
-- Nephrology says: **stop** Metformin (eGFR <30 is a hard contraindication)
+- Cardiology may prioritize guideline-directed HF therapy.
+- Nephrology may prioritize renal dosing, potassium, and eGFR thresholds.
+- Endocrinology may prioritize glycemic control and cardiometabolic benefit.
 
-The primary care physician is left to **reconcile these conflicts manually**, with no systematic tool and no explainable reasoning chain.
+The primary care physician is left to reconcile tradeoffs manually. Consilium turns that reconciliation into an explainable, auditable workflow: specialist recommendations are generated separately, validated structurally, and ranked with deterministic multi-criteria scoring.
 
-## The Solution
+## Solution
 
-**Consilium** is a multi-agent clinical decision support system that:
+Consilium exposes one A2A endpoint that can be connected to Prompt Opinion. At runtime it:
 
-1. **Routes** patient data to 3 specialist sub-agents (cardiology, nephrology, endocrinology)
-2. **Collects** structured recommendations with evidence levels, risk flags, and guideline citations
-3. **Scores** recommendations using **TOPSIS** (multi-criteria ranking) across 4 clinical dimensions
-4. **Explains** the ranking with a clinician-friendly decision summary
+1. Reads patient context from Prompt Opinion FHIR metadata when available, or from clinician-entered text when not.
+2. Calls three ADK specialist agents: cardiology, nephrology, and endocrinology.
+3. Requires each specialist to return structured JSON: `specialty`, `recommendation`, `risks`, and `citation`.
+4. Converts those outputs into deterministic TOPSIS inputs.
+5. Returns a ranked clinical decision, action plan, conflicts resolved, citations, and a safety disclaimer.
 
-```
-Patient FHIR Data
-       │
-       ▼
-┌──────────────────┐
-│  ASM Orchestrator │  ← Single A2A endpoint
-└──────┬───────────┘
-       │ in-process (ADK AgentTool)
-       ├──────────────┬──────────────┐
-       ▼              ▼              ▼
-┌──────────┐  ┌──────────┐  ┌──────────────┐
-│Cardiology│  │Nephrology│  │Endocrinology │
-│  Agent   │  │  Agent   │  │    Agent     │
-│(ACC/AHA) │  │ (KDIGO)  │  │   (ADA)     │
-└────┬─────┘  └────┬─────┘  └──────┬──────┘
-     │             │               │
-     └─────────────┼───────────────┘
-                   ▼
-          ┌────────────────┐
-          │  TOPSIS Scorer │
-          │  4 dimensions  │
-          └───────┬────────┘
-                  ▼
-         ┌────────────────┐
-         │ Explain Decision│
-         │ (NL summary)    │
-         └────────────────┘
+If the text input lacks enough patient-specific information, Consilium refuses to invent a plan and asks for more clinical context.
+
+## Live Integration
+
+| Layer | Current Implementation |
+|---|---|
+| A2A Backend | Cloud Run service serving `orchestrator.app:a2a_app` |
+| Platform | Prompt Opinion BYO A2A agent connection |
+| Patient Context | Prompt Opinion FHIR context extension + SMART scopes |
+| Specialist Models | DeepSeek V4 Flash through LiteLLM |
+| Frontend Demo | React/Vite single-page clinical workspace in `frontend/` |
+| Local Fallback | Direct free-text patient summary when no FHIR context is present |
+
+The agent card advertises the official Prompt Opinion FHIR extension:
+
+```text
+https://app.promptopinion.ai/schemas/a2a/v1/fhir-context
 ```
 
-## TOPSIS Scoring Dimensions
+## Architecture
 
-| Dimension | Weight | Direction | Rationale |
-|-----------|--------|-----------|-----------|
-| **Evidence Level** | 30% | Higher = better | ACC/AHA Class, KDIGO Grade, ADA Level |
-| **Patient Match** | 30% | Higher = better | How well the rec fits this patient's specific metrics |
-| **Drug Interaction Risk** | 20% | Lower = better | Potential for adverse interactions with existing meds |
-| **Guideline Priority** | 20% | Higher = better | How strongly the guideline recommends this action |
+```text
+Prompt Opinion / React Demo
+        |
+        | A2A message/send
+        v
+ASM Orchestrator
+        |
+        | FHIR context if available
+        v
+FHIR patient summary
+        |
+        | ADK Runner calls
+        +---------------------+----------------------+----------------------+
+        v                     v                      v
+ Cardiology Agent       Nephrology Agent      Endocrinology Agent
+   ACC/AHA HF              KDIGO CKD              ADA Diabetes
+        |                     |                      |
+        +---------- structured JSON recommendations -+
+                              |
+                              v
+                 Deterministic TOPSIS scorer
+                              |
+                              v
+              Ranked decision + conflicts resolved
+```
 
-Weights are dynamically adjustable based on patient state (e.g., eGFR <30 boosts drug interaction risk weight).
+### Architecture Reality
 
-## Clinical Example
+This version implements **parallel specialist consult + deterministic reconciliation**. The agents do not yet conduct a multi-round negotiation with each other. That is intentional for the hackathon build: it keeps the decision path inspectable, reliable, and fast enough for live A2A demos. A future version should add a negotiation loop where specialists exchange rationale and revise recommendations before TOPSIS ranking.
 
-**Patient:** 68M, LVEF 32%, eGFR 28, HbA1c 8.2%
-**Meds:** Lisinopril, Metformin, Furosemide, Aspirin, Glipizide
+## Clinical Scoring Method
 
-**TOPSIS Ranking:**
+The LLM specialists do **not** assign TOPSIS scores. They only produce recommendations, risks, and citations. Consilium computes scoring dimensions in code.
 
-| Rank | Specialty | Score | Key Recommendation |
-|:----:|:---------:|:-----:|:-------------------|
-| 🥇 | Nephrology | 0.581 | Stop Metformin, start SGLT2i, continue Lisinopril |
-| 🥈 | Endocrinology | 0.542 | Stop Metformin, start SGLT2i, consider GLP-1 RA |
-| 🥉 | Cardiology | 0.398 | Add beta-blocker + SGLT2i, consider ARNI switch |
+| Dimension | Default Weight | How It Is Computed |
+|---|---:|---|
+| Evidence Level | 0.30 | Deterministic mapping from guideline labels such as ACC/AHA Class I, KDIGO Grade 1A, ADA Level A |
+| Patient Match | 0.30 | Deterministic match to patient state: LVEF, eGFR, HbA1c, HF, CKD, diabetes |
+| Medication Safety | 0.20 | Deterministic penalty from risk flags such as hyperkalemia, lactic acidosis, hypotension, volume depletion |
+| Guideline Priority | 0.20 | Deterministic guideline-strength proxy using the same evidence hierarchy |
 
-**Consensus:** All 3 specialists agree on stopping Metformin (eGFR <30 contraindication) and starting SGLT2i (triple benefit for HF + CKD + T2DM).
+Dynamic patient-state weighting is implemented for safety-critical cases:
+
+| Trigger | Weights |
+|---|---|
+| eGFR <30 and patient is on Metformin | Evidence 0.20, Patient Match 0.25, Medication Safety 0.35, Guideline Priority 0.20 |
+| LVEF <35 without the renal-safety override | Evidence 0.25, Patient Match 0.25, Medication Safety 0.20, Guideline Priority 0.30 |
+
+The renal-safety override takes precedence because eGFR <30 + Metformin is an immediate medication-safety conflict.
+
+## Example Cases
+
+### Case A: HFrEF + CKD4 + T2DM + Metformin
+
+**Input:** 68M, HFrEF LVEF 32%, CKD stage 4 eGFR 28, T2DM HbA1c 8.2%, on Lisinopril, Metformin, Furosemide.
+
+| Rank | Specialty | Score | Why |
+|:---:|---|---:|---|
+| 1 | Nephrology | 0.900 | eGFR <30 makes Metformin safety the highest-priority conflict |
+| 2 | Endocrinology | 0.625 | Diabetes therapy must change, also supports SGLT2i |
+| 3 | Cardiology | 0.350 | HFrEF therapy matters, but unresolved renal safety is more urgent |
+
+**Conflict resolved:** Stop Metformin; start SGLT2i if tolerated; continue ACEi/ARB with potassium and creatinine monitoring.
+
+### Case B: HFpEF, Normal Kidney Function, No Diabetes
+
+**Input:** 55F, HFpEF LVEF 58%, eGFR 82, no diabetes, no kidney disease, on Lisinopril and Carvedilol.
+
+| Rank | Specialty | Score | Why |
+|:---:|---|---:|---|
+| 1 | Cardiology | 0.900 | HF phenotype drives the only active specialty priority |
+| 2 | Endocrinology | 0.625 | No glucose-lowering therapy is indicated |
+| 3 | Nephrology | 0.350 | No CKD-specific medication conflict detected |
+
+**Conflict resolved:** No Metformin or CKD conflict is invented; the output stays scoped to the available patient data.
+
+### Case C: Insufficient Patient Context
+
+**Input:** `Run the full multi-specialty orchestration for this patient.`
+
+**Output:** Consilium returns `More Patient Information Needed` and does not call specialist agents or TOPSIS. This prevents the model from hallucinating a clinical plan when neither FHIR context nor a meaningful patient summary is available.
+
+## Safety & Reliability
+
+- **FHIR-aware:** reads `fhirUrl`, `fhirToken`, and `patientId` from A2A metadata when Prompt Opinion sends FHIR context.
+- **No token leakage:** production defaults do not log full JSON-RPC bodies, FHIR tokens, patient ids, or full FHIR payloads.
+- **Minimum-context gate:** insufficient free-text requests are rejected before specialist LLM calls.
+- **Specialist contract validation:** malformed JSON, missing required fields, wrong specialty, or empty recommendations are rejected.
+- **Per-specialist fallback:** one failed or timed-out specialist falls back deterministically without failing the whole task.
+- **A2A compatibility:** middleware accepts `SendMessage`, `SendStreamingMessage`, `ROLE_USER`, `ROLE_AGENT`, `messageId`, and `message_id` variants.
+- **CORS-ready:** browser demos can call the deployed A2A service.
 
 ## Tech Stack
 
 | Component | Technology |
-|-----------|-----------|
-| Agent Framework | [Google ADK](https://google.github.io/adk-docs/) |
-| Protocol | [A2A (Agent-to-Agent)](https://google.github.io/A2A/) v1 |
-| Platform | [Prompt Opinion](https://promptopinion.ai) |
-| LLM | DeepSeek V3 (via LiteLLM) |
-| Decision Engine | TOPSIS (custom implementation) |
-| Data Standard | FHIR R4 |
-| Context Propagation | SHARP Extension Specs |
+|---|---|
+| Agent Framework | Google ADK |
+| A2A Transport | A2A JSON-RPC endpoint |
+| Platform | Prompt Opinion |
+| LLM Provider | DeepSeek V4 Flash via LiteLLM |
+| Decision Engine | Custom TOPSIS implementation |
+| Clinical Data | FHIR R4 + SMART scopes |
+| Backend Runtime | FastAPI/Starlette through ADK A2A adapter |
+| Frontend | React + Vite + lucide-react |
+| Deployment | Google Cloud Run |
 
 ## Quick Start
 
 ```bash
-# Clone
 git clone https://github.com/eiddiedev/Consilium.git
 cd Consilium
 
-# Setup
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 
-# Configure
 cp .env.example .env
-# Edit .env: set DEEPSEEK_API_KEY (or GOOGLE_API_KEY for Gemini)
+# Set DEEPSEEK_API_KEY and API_KEYS.
+# Defaults use deepseek/deepseek-v4-flash via LiteLLM.
 
-# Run locally (browser UI)
-adk web .
-
-# Run as A2A server (for Prompt Opinion)
 uvicorn orchestrator.app:a2a_app --host 0.0.0.0 --port 8003
-
-# Verify
 curl http://localhost:8003/.well-known/agent-card.json
 ```
 
+### A2A Smoke Test
+
+```bash
+source .env
+curl -sS -X POST http://localhost:8003/ \
+  -H 'Content-Type: application/json' \
+  -H "X-API-Key: ${API_KEYS%%,*}" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": "demo",
+    "method": "message/send",
+    "params": {
+      "message": {
+        "role": "user",
+        "messageId": "demo-message",
+        "parts": [{
+          "kind": "text",
+          "text": "68-year-old male with HFrEF LVEF 32%, type 2 diabetes HbA1c 8.2%, CKD eGFR 28. Current medications: Lisinopril, Metformin, Furosemide, Aspirin, Glipizide."
+        }]
+      }
+    }
+  }'
+```
+
+### Frontend Demo
+
+```bash
+cd frontend
+cp .env.example .env
+# Set VITE_A2A_AGENT_URL and VITE_A2A_API_KEY.
+npm install
+npm run dev
+```
+
+## Verification
+
+```bash
+# Backend unit/regression tests
+.venv/bin/python -m pytest -q
+
+# Frontend build
+cd frontend && npm run build
+
+# Agent card
+curl -sS http://localhost:8003/.well-known/agent-card.json
+
+# A2A smoke
+curl -sS -X POST http://localhost:8003/ \
+  -H 'Content-Type: application/json' \
+  -H "X-API-Key: ${API_KEYS%%,*}" \
+  -d '{"jsonrpc":"2.0","id":"smoke","method":"message/send","params":{"message":{"role":"user","messageId":"smoke-message","parts":[{"kind":"text","text":"55-year-old female with HFpEF LVEF 58%, eGFR 82, no diabetes, no kidney disease. Current medications: Lisinopril and Carvedilol."}]}}}'
+```
+
+Expected:
+
+- Tests pass.
+- Agent card includes `securitySchemes`, `supportedInterfaces`, Prompt Opinion FHIR extension URI, and SMART scopes.
+- A2A response returns a completed task artifact.
+- Logs show only safe FHIR status summaries unless `LOG_FHIR_DEBUG=true` is explicitly set.
+
 ## Project Structure
 
-```
+```text
 Consilium/
-├── orchestrator/          # Main A2A endpoint — routes to sub-agents
-│   ├── agent.py           # Orchestrator logic + TOPSIS + explain tools
-│   └── app.py             # A2A server config + agent card
-├── cardiology_agent/      # HF specialist (ACC/AHA 2022)
-├── nephrology_agent/      # CKD specialist (KDIGO 2024)
-├── endocrinology_agent/   # T2DM specialist (ADA 2025)
-├── shared/                # ADK infrastructure (middleware, FHIR hooks, tools)
-│   ├── app_factory.py     # A2A app builder
-│   ├── fhir_hook.py       # SHARP context extraction
-│   ├── middleware.py       # API key enforcement
-│   └── tools/fhir.py      # FHIR R4 query tools
-├── tools/                 # Decision engine
-│   ├── topsis.py          # TOPSIS multi-criteria scorer
-│   ├── score_tool.py      # ADK tool wrapper
-│   └── explain_tool.py    # Decision explanation generator
-├── data/
-│   ├── patient_hf_t2dm_ckd.json   # Mock FHIR Bundle
-│   └── guideline_weights.json     # Clinical guideline weights
-└── tests/
-    └── test_topsis.py     # TOPSIS unit tests (10/10 passing)
+├── orchestrator/          # Main A2A endpoint and orchestration logic
+├── cardiology_agent/      # ACC/AHA-oriented specialist agent
+├── nephrology_agent/      # KDIGO-oriented specialist agent
+├── endocrinology_agent/   # ADA-oriented specialist agent
+├── shared/                # A2A app factory, middleware, FHIR hooks/tools
+├── tools/                 # TOPSIS scorer and helper tools
+├── frontend/              # React demo UI
+├── data/                  # Example FHIR bundles and guideline weights
+└── tests/                 # TOPSIS, parser, safety, and regression tests
 ```
 
-## Why AI + TOPSIS (Not Pure Rules)?
+## Known Limitations
 
-| | Rule Engine | Consilium (AI + TOPSIS) |
-|---|---|---|
-| **Free-text guidelines** | Can't parse "if EF <40% and eGFR >30, consider..." | LLM extracts structured signals from natural language |
-| **Dynamic weights** | Fixed rules | Weights shift based on patient state (eGFR, LVEF, HbA1c) |
-| **Multi-criteria tradeoff** | Hard-coded priorities | TOPSIS mathematically ranks across 4 dimensions |
-| **Explainability** | "Rule #47 triggered" | "Nephrology ranked #1 due to superior patient match (1.00) — eGFR 28 makes drug interaction risk the critical dimension" |
-| **New guidelines** | Rewrite rules | Update prompt + weight table |
+- Current specialist agents run in parallel and do not yet negotiate with each other in a multi-turn deliberation loop.
+- The system has not been validated against clinical outcomes or physician time-motion studies.
+- Guideline mappings are intentionally narrow for the hackathon scope: HF, CKD, and diabetes medication conflicts.
+- This is advisory clinical decision support, not autonomous prescribing software.
 
 ## Evidence Sources
 
-- **ACC/AHA 2022** Heart Failure Guidelines ([JACC](https://www.jacc.org/doi/10.1016/j.jacc.2021.12.012))
-- **KDIGO 2024** CKD Guidelines ([KDIGO](https://kdigo.org/guidelines/ckd-evaluation-and-management/))
-- **ADA 2025** Standards of Care in Diabetes ([Diabetes Care](https://diabetesjournals.org/care/issue/48/Supplement_1))
+- ACC/AHA 2022 Heart Failure Guideline: https://www.jacc.org/doi/10.1016/j.jacc.2021.12.012
+- KDIGO 2024 CKD Guideline: https://kdigo.org/guidelines/ckd-evaluation-and-management/
+- ADA 2025 Standards of Care in Diabetes: https://diabetesjournals.org/care/issue/48/Supplement_1
 
 ## Disclaimer
 
-Consilium is a **clinical decision support tool**, not a clinical decision maker. All outputs include evidence citations, risk flags, and confidence scores. Final treatment decisions rest with the treating physician.
+Consilium is a clinical decision support tool. It does not replace physician judgment, local policy, patient preference, or emergency clinical assessment. Final treatment decisions rest with the treating clinician.
 
 ## License
 
 MIT
-
----
-
-*Built for [Agents Assemble: The Healthcare AI Endgame](https://agents-assemble.devpost.com/) by Prompt Opinion / Darena Health.*

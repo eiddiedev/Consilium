@@ -46,6 +46,7 @@ from tools.topsis import Preferences, Recommendation, score_topsis
 load_dotenv()
 
 logger = logging.getLogger(__name__)
+LOG_FHIR_DEBUG = os.getenv("LOG_FHIR_DEBUG", "false").lower() == "true"
 
 DEFAULT_MODEL = "deepseek/deepseek-v4-flash"
 _model_name = os.getenv("ORCHESTRATOR_MODEL", DEFAULT_MODEL)
@@ -130,6 +131,24 @@ def _parse_patient_values(ctx: str) -> dict:
     )
     egfr_val = float(egfr_m.group(1)) if egfr_m else None
     hba1c_val = float(hba1c_m.group(1)) if hba1c_m else None
+    has_ckd_positive = any(kw in ctx_lower for kw in ["ckd", "kidney", "renal"])
+    has_ckd_negated = any(
+        re.search(pattern, ctx_lower)
+        for pattern in [
+            r"\bno\s+(?:history\s+of\s+)?(?:ckd|chronic kidney disease|kidney disease|renal disease)\b",
+            r"\bwithout\s+(?:history\s+of\s+)?(?:ckd|chronic kidney disease|kidney disease|renal disease)\b",
+            r"\bdenies\s+(?:history\s+of\s+)?(?:ckd|chronic kidney disease|kidney disease|renal disease)\b",
+        ]
+    )
+    has_diabetes_positive = any(kw in ctx_lower for kw in ["diabetes", "t2dm", "diabetic"])
+    has_diabetes_negated = any(
+        re.search(pattern, ctx_lower)
+        for pattern in [
+            r"\bno\s+(?:history\s+of\s+)?(?:diabetes|t2dm|diabetic disease)\b",
+            r"\bwithout\s+(?:history\s+of\s+)?(?:diabetes|t2dm|diabetic disease)\b",
+            r"\bdenies\s+(?:history\s+of\s+)?(?:diabetes|t2dm|diabetic disease)\b",
+        ]
+    )
     return {
         "ef": float(ef_m.group(1)) if ef_m else None,
         "egfr": egfr_val,
@@ -137,12 +156,12 @@ def _parse_patient_values(ctx: str) -> dict:
         "has_hf": has_hf_positive and not has_hf_negated,
         # CKD: explicit keywords OR eGFR < 60 (normal eGFR doesn't mean CKD)
         "has_ckd": (
-            any(kw in ctx_lower for kw in ["ckd", "kidney", "renal"])
+            (has_ckd_positive and not has_ckd_negated)
             or (egfr_val is not None and egfr_val < 60)
         ),
         # Diabetes: explicit keywords OR HbA1c >= 6.5% (normal HbA1c doesn't mean DM)
         "has_diabetes": (
-            any(kw in ctx_lower for kw in ["diabetes", "t2dm", "diabetic"])
+            (has_diabetes_positive and not has_diabetes_negated)
             or (hba1c_val is not None and hba1c_val >= 6.5)
         ),
         "has_metformin": "metformin" in ctx_lower,
@@ -315,13 +334,20 @@ def _evidence_for_specialty(specialty: str, vals: dict) -> str:
 
 
 def _preferences_for_patient(vals: dict) -> Preferences:
-    """Shift ranking toward medication safety for eGFR<30 + metformin cases."""
+    """Shift TOPSIS weights for safety-critical patient states."""
     if vals["has_metformin"] and vals["egfr"] is not None and vals["egfr"] < 30:
         return Preferences(
             evidence_level=0.20,
             patient_match=0.25,
             drug_interaction_risk=0.35,
             guideline_priority=0.20,
+        )
+    if vals["has_hf"] and vals["ef"] is not None and vals["ef"] < 35:
+        return Preferences(
+            evidence_level=0.25,
+            patient_match=0.25,
+            drug_interaction_risk=0.20,
+            guideline_priority=0.30,
         )
     return Preferences()
 
@@ -337,6 +363,12 @@ def _fallback_specialist_payloads(vals: dict) -> dict[str, dict[str, Any]]:
             f"Start carvedilol 3.125mg BID for HFrEF (EF={vals['ef']}%) plus "
             "dapagliflozin 10mg daily. Continue lisinopril with K+/Cr monitoring."
         )
+    elif vals["has_hf"] and vals["ef"] is not None and vals["ef"] >= 50:
+        cardio_rec = (
+            f"HFpEF phenotype (EF={vals['ef']}%): continue current HF therapy and "
+            "consider dapagliflozin 10mg daily if symptomatic. No HFrEF beta-blocker "
+            "initiation is indicated solely from this presentation."
+        )
     if vals["has_hf"] and vals["has_ckd"]:
         cardio_risks = ["hypotension", "hyperkalemia"]
     elif vals["has_ckd"]:
@@ -344,8 +376,11 @@ def _fallback_specialist_payloads(vals: dict) -> dict[str, dict[str, Any]]:
     else:
         cardio_risks = ["hypotension"]
 
-    nephro_rec = "Stop metformin. Start dapagliflozin 10mg daily. Continue lisinopril."
-    nephro_risks = ["monitor renal function"]
+    nephro_rec = "No CKD-specific medication change is indicated from the available renal data."
+    nephro_risks = []
+    if vals["has_ckd"]:
+        nephro_rec = "Start dapagliflozin 10mg daily for kidney protection and continue lisinopril."
+        nephro_risks = ["monitor renal function"]
     if vals["has_metformin"] and vals["egfr"] is not None and vals["egfr"] < 30:
         nephro_rec = (
             f"STOP metformin immediately (eGFR={vals['egfr']}, below the <30 "
@@ -359,7 +394,7 @@ def _fallback_specialist_payloads(vals: dict) -> dict[str, dict[str, Any]]:
             "Consider dapagliflozin 10mg daily for kidney protection and continue lisinopril."
         )
 
-    endo_rec = "Stop metformin. Start dapagliflozin 10mg daily. Consider GLP-1 RA."
+    endo_rec = "No glucose-lowering therapy is indicated from the available diabetes data."
     if vals["has_metformin"] and vals["egfr"] is not None and vals["egfr"] < 30:
         endo_rec = (
             f"STOP metformin (eGFR={vals['egfr']}<30, contraindicated). Start "
@@ -370,6 +405,8 @@ def _fallback_specialist_payloads(vals: dict) -> dict[str, dict[str, Any]]:
             f"HbA1c={vals['hba1c']}% above target. Start dapagliflozin 10mg daily, "
             "consider GLP-1 RA, and adjust current diabetes regimen."
         )
+    elif vals["has_diabetes"]:
+        endo_rec = "Continue diabetes therapy and consider dapagliflozin 10mg daily if CKD/HF indications are present."
     endo_risks = ["volume depletion"] if vals["has_diabetes"] else []
 
     return {
@@ -712,6 +749,12 @@ def _has_success(result: dict[str, Any]) -> bool:
     return isinstance(result, dict) and result.get("status") == "success"
 
 
+def _result_status(result: Any) -> str:
+    if isinstance(result, dict):
+        return str(result.get("status", "unknown"))
+    return type(result).__name__
+
+
 def _insufficient_patient_info_response(
     *,
     data_source: str,
@@ -790,13 +833,14 @@ async def _patient_message_from_fhir_or_text(
     fhir_url = fhir_data.get("fhirUrl", "") if fhir_data else ""
     fhir_token = fhir_data.get("fhirToken", "") if fhir_data else ""
     patient_id = fhir_data.get("patientId", "") if fhir_data else ""
-    logger.warning("FHIR DEBUG - fhirUrl: %s", fhir_url)
-    logger.warning("FHIR DEBUG - patientId: %s", patient_id)
-    logger.warning("FHIR DEBUG - token present: %s", bool(fhir_token))
-    logger.warning(
-        "FHIR DEBUG - data_source will be: %s",
-        "fhir" if (fhir_url and patient_id) else "text",
-    )
+    if LOG_FHIR_DEBUG:
+        logger.warning("FHIR DEBUG - fhirUrl: %s", fhir_url)
+        logger.warning("FHIR DEBUG - patientId: %s", patient_id)
+        logger.warning("FHIR DEBUG - token present: %s", bool(fhir_token))
+        logger.warning(
+            "FHIR DEBUG - data_source will be: %s",
+            "fhir" if (fhir_url and patient_id) else "text",
+        )
     if not fhir_data:
         return original_message, "text summary", []
 
@@ -820,10 +864,18 @@ async def _patient_message_from_fhir_or_text(
         asyncio.to_thread(get_recent_observations, "laboratory", tool_context),
     )
     results = [demographics, conditions, medications, observations]
-    logger.warning("FHIR TOOL - demographics: %s", demographics)
-    logger.warning("FHIR TOOL - conditions: %s", conditions)
-    logger.warning("FHIR TOOL - medications: %s", medications)
-    logger.warning("FHIR TOOL - observations: %s", observations)
+    logger.info(
+        "fhir_resource_status demographics=%s conditions=%s medications=%s observations=%s",
+        _result_status(demographics),
+        _result_status(conditions),
+        _result_status(medications),
+        _result_status(observations),
+    )
+    if LOG_FHIR_DEBUG:
+        logger.warning("FHIR TOOL - demographics: %s", demographics)
+        logger.warning("FHIR TOOL - conditions: %s", conditions)
+        logger.warning("FHIR TOOL - medications: %s", medications)
+        logger.warning("FHIR TOOL - observations: %s", observations)
     errors = [
         str(result.get("error_message", "FHIR resource failed"))
         for result in results
@@ -856,6 +908,13 @@ def _specialist_model_name(specialty: str) -> str:
 def _specialist_llms_enabled() -> bool:
     raw = os.getenv("CONSILIUM_USE_SPECIALIST_LLMS", "true").strip().lower()
     return raw not in {"0", "false", "no", "off"}
+
+
+def _specialist_timeout_seconds() -> float:
+    try:
+        return float(os.getenv("SPECIALIST_AGENT_TIMEOUT_SECONDS", "30"))
+    except ValueError:
+        return 30.0
 
 
 async def _run_adk_specialist(specialty: str, patient_message: str) -> str:
@@ -908,7 +967,10 @@ async def _collect_specialist_payloads(patient_message: str) -> tuple[dict[str, 
             runnable_specialties.append(specialty)
 
     async def invoke(specialty: str):
-        raw = await _run_adk_specialist(specialty, patient_message)
+        raw = await asyncio.wait_for(
+            _run_adk_specialist(specialty, patient_message),
+            timeout=_specialist_timeout_seconds(),
+        )
         return specialty, parse_specialist_json(raw, specialty)
 
     results = await asyncio.gather(

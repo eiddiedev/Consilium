@@ -115,10 +115,14 @@ button {
   display: grid;
   gap: 10px;
   margin-top: 12px;
+  max-height: 270px;
+  overflow: auto;
+  padding-right: 2px;
 }
 
 .preset-button {
   min-height: 42px;
+  min-width: 0;
   border: 0;
   border-radius: 16px;
   color: #5d6d82;
@@ -135,6 +139,68 @@ button {
   color: #ffffff;
   background: linear-gradient(135deg, #25d6c9, #18b9a9);
   box-shadow: 0 16px 32px rgba(24, 185, 169, 0.25);
+}
+
+.imported-patient-row {
+  position: relative;
+}
+
+.preset-button.imported {
+  width: 100%;
+  overflow: hidden;
+  padding: 0 40px 0 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.delete-patient-button {
+  position: absolute;
+  top: 50%;
+  right: 9px;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 8px;
+  color: #7b8da3;
+  background: transparent;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-50%);
+  transition: color 180ms ease, background 180ms ease, opacity 180ms ease, transform 180ms ease;
+}
+
+.imported-patient-row:hover .delete-patient-button,
+.delete-patient-button:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.delete-patient-button:hover:not(:disabled) {
+  color: #d64b63;
+  background: #fff0f3;
+  transform: translateY(-50%) scale(1.04);
+}
+
+.preset-button.imported.active + .delete-patient-button {
+  color: rgba(255, 255, 255, 0.86);
+}
+
+.preset-button.imported.active + .delete-patient-button:hover:not(:disabled),
+.preset-button.imported.active + .delete-patient-button:focus-visible {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.delete-patient-button:disabled {
+  cursor: not-allowed;
+  opacity: 0;
+}
+
+.imported-patient-row:hover .delete-patient-button:disabled {
+  opacity: 0.35;
 }
 
 .action-block {
@@ -478,18 +544,18 @@ h3 {
 
 .status-list {
   display: grid;
-  gap: 12px;
-  margin-top: 18px;
+  gap: 9px;
+  margin-top: 14px;
 }
 
 .status-row {
   display: grid;
-  grid-template-columns: 44px minmax(0, 1fr) 28px;
-  gap: 12px;
+  grid-template-columns: 38px minmax(0, 1fr) 24px;
+  gap: 10px;
   align-items: center;
-  min-height: 58px;
-  padding: 8px 10px;
-  border-radius: 19px;
+  min-height: 49px;
+  padding: 6px 9px;
+  border-radius: 16px;
   background: #f5fbfb;
   transition: transform 220ms ease, background 220ms ease, box-shadow 220ms ease;
 }
@@ -507,9 +573,9 @@ h3 {
 .step-icon {
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 16px;
+  width: 38px;
+  height: 38px;
+  border-radius: 14px;
   color: #17a99b;
   background: #ffffff;
 }
@@ -525,13 +591,13 @@ h3 {
 
 .step-copy strong {
   color: #172033;
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .step-copy span {
-  margin-top: 4px;
+  margin-top: 3px;
   color: #7b8da3;
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .status-row.active .step-copy span,
@@ -557,13 +623,14 @@ h3 {
 .panel-footer {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   margin-top: auto;
-  padding: 13px;
-  border-radius: 18px;
+  padding: 8px 9px;
+  border-radius: 14px;
   color: #5e7088;
   background: #f4f9fa;
-  font-size: 12px;
+  font-size: 11px;
+  line-height: 1.25;
 }
 
 .decision-panel {
@@ -953,17 +1020,6 @@ h3 {
 
 .conflict-heading {
   align-items: center;
-}
-
-.heading-action {
-  display: grid;
-  place-items: center;
-  flex: 0 0 auto;
-  width: 40px;
-  height: 40px;
-  border-radius: 16px;
-  color: #12a99b;
-  background: #e8fbf8;
 }
 
 .consensus-waiting {

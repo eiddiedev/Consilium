@@ -13,6 +13,8 @@ from shared.app_factory import create_a2a_app
 
 from .agent import root_agent
 
+PO_PLATFORM_BASE_URL = os.getenv("PO_PLATFORM_BASE_URL", "https://app.promptopinion.ai").rstrip("/")
+
 a2a_app = create_a2a_app(
     agent=root_agent,
     name="asm_orchestrator",
@@ -24,7 +26,7 @@ a2a_app = create_a2a_app(
     ),
     url=os.getenv("ORCHESTRATOR_URL", os.getenv("BASE_URL", "http://localhost:8003")),
     port=8003,
-    fhir_extension_uri=f"{os.getenv('PO_PLATFORM_BASE_URL', 'http://localhost:5139')}/schemas/a2a/v1/fhir-context",
+    fhir_extension_uri=f"{PO_PLATFORM_BASE_URL}/schemas/a2a/v1/fhir-context",
     fhir_scopes=[
         {"name": "patient/Patient.rs",           "required": True},
         {"name": "patient/MedicationRequest.rs", "required": True},

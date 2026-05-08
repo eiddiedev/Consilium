@@ -25,3 +25,6 @@ __pycache__/
 requirements-dev.txt
 Procfile
 scripts/
+
+# Frontend demo app — deployed separately from the backend agent service
+frontend/

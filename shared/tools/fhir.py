@@ -114,7 +114,7 @@ def get_patient_demographics(tool_context: ToolContext) -> dict:
         return ctx
     fhir_url, fhir_token, patient_id = ctx
 
-    logger.info("tool_get_patient_demographics patient_id=%s", patient_id)
+    logger.info("tool_get_patient_demographics patient_id_present=%s", bool(patient_id))
     try:
         patient = _fhir_get(fhir_url, fhir_token, f"Patient/{patient_id}")
     except httpx.HTTPStatusError as e:
@@ -170,7 +170,7 @@ def get_active_medications(tool_context: ToolContext) -> dict:
         return ctx
     fhir_url, fhir_token, patient_id = ctx
 
-    logger.info("tool_get_active_medications patient_id=%s", patient_id)
+    logger.info("tool_get_active_medications patient_id_present=%s", bool(patient_id))
     try:
         bundle = _fhir_get(
             fhir_url, fhir_token, "MedicationRequest",
@@ -222,7 +222,7 @@ def get_active_conditions(tool_context: ToolContext) -> dict:
         return ctx
     fhir_url, fhir_token, patient_id = ctx
 
-    logger.info("tool_get_active_conditions patient_id=%s", patient_id)
+    logger.info("tool_get_active_conditions patient_id_present=%s", bool(patient_id))
     try:
         bundle = _fhir_get(
             fhir_url, fhir_token, "Condition",
@@ -277,7 +277,7 @@ def get_recent_observations(category: str, tool_context: ToolContext) -> dict:
     fhir_url, fhir_token, patient_id = ctx
 
     category = (category or "vital-signs").strip().lower()
-    logger.info("tool_get_recent_observations patient_id=%s category=%s", patient_id, category)
+    logger.info("tool_get_recent_observations patient_id_present=%s category=%s", bool(patient_id), category)
     try:
         bundle = _fhir_get(
             fhir_url, fhir_token, "Observation",

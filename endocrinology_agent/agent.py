@@ -11,8 +11,15 @@ from google.adk.models.lite_llm import LiteLlm
 
 load_dotenv()
 
-_model_name = os.getenv("ENDOCRINOLOGY_AGENT_MODEL", "gemini/gemini-2.5-flash")
-_model = LiteLlm(model=_model_name, max_tokens=300)
+# Set ENDOCRINOLOGY_AGENT_MODEL to deepseek/deepseek-v4-pro for the higher-quality
+# DeepSeek V4 option.
+_model_name = os.getenv("ENDOCRINOLOGY_AGENT_MODEL", "deepseek/deepseek-v4-flash")
+_model = LiteLlm(
+    model=_model_name,
+    max_tokens=800,
+    temperature=0,
+    response_format={"type": "json_object"},
+)
 
 root_agent = Agent(
     name="endocrinology_agent",
@@ -20,7 +27,9 @@ root_agent = Agent(
     description="T2DM specialist.",
     instruction=(
         "You are an endocrinologist. The message has a patient summary.\n"
-        "Reply with ONLY this JSON (no markdown, no explanation):\n"
+        "Reply with one valid JSON object only. Do not include markdown, prose, or reasoning.\n"
+        "The response must begin with { and end with }.\n"
+        "Use exactly this shape:\n"
         '{"specialty":"endocrinology","recommendation":"<2 sentences with drug names+doses>",'
         '"risks":["<risk1>","<risk2>"],'
         '"citation":"ADA 2025 Sec 10"}\n'

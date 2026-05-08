@@ -6,7 +6,7 @@ extracts them and stores them in session state so that tools can use them at
 call time without the credentials ever appearing in the prompt text.
 
 Metadata key convention (must match the AgentExtension URI in app.py):
-    "http://<host>/schemas/a2a/v1/fhir-context": {
+    "https://app.promptopinion.ai/schemas/a2a/v1/fhir-context": {
         "fhirUrl":   "https://fhir.example.org",
         "fhirToken": "<bearer-token>",
         "patientId": "patient-42"
@@ -187,14 +187,11 @@ def extract_fhir_context(callback_context, llm_request):
         callback_context.state["fhir_url"]   = fhir_data.get("fhirUrl",   "")
         callback_context.state["fhir_token"] = fhir_data.get("fhirToken", "")
         callback_context.state["patient_id"] = fhir_data.get("patientId", "")
-        logger.info("FHIR_URL_FOUND value=%s",         callback_context.state["fhir_url"]   or "[EMPTY]")
-        logger.info("FHIR_TOKEN_FOUND fingerprint=%s", token_fingerprint(callback_context.state["fhir_token"]))
-        logger.info("FHIR_PATIENT_FOUND value=%s",     callback_context.state["patient_id"] or "[EMPTY]")
         logger.info(
             "hook_called_fhir_found task_id=%s context_id=%s message_id=%s "
-            "patient_id=%s fhir_url_set=%s fhir_token=%s",
+            "patient_id_present=%s fhir_url_set=%s fhir_token=%s",
             correlation["task_id"], correlation["context_id"], correlation["message_id"],
-            callback_context.state["patient_id"],
+            bool(callback_context.state["patient_id"]),
             bool(callback_context.state["fhir_url"]),
             token_fingerprint(callback_context.state["fhir_token"]),
         )
@@ -206,8 +203,8 @@ def extract_fhir_context(callback_context, llm_request):
         )
 
     logger.info(
-        "hook_called_exit task_id=%s context_id=%s message_id=%s patient_id=%s",
+        "hook_called_exit task_id=%s context_id=%s message_id=%s patient_id_present=%s",
         correlation["task_id"], correlation["context_id"], correlation["message_id"],
-        callback_context.state.get("patient_id", ""),
+        bool(callback_context.state.get("patient_id", "")),
     )
     return None

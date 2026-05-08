@@ -56,12 +56,12 @@ def configure_logging(package_name: str):
     """
     Configure a named package logger with an ANSI-colour handler.
 
-    All child loggers (e.g. healthcare_agent.agent, general_agent.middleware)
+    All child loggers (e.g. orchestrator.agent, shared.middleware)
     propagate to their package logger and share this handler.
     Idempotent — safe to call multiple times with the same package name.
 
     Args:
-        package_name: The top-level package to configure, e.g. "healthcare_agent".
+        package_name: The top-level package to configure, e.g. "orchestrator".
     """
     _enable_windows_ansi()
     pkg = logging.getLogger(package_name)

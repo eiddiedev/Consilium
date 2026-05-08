@@ -12,6 +12,7 @@ import json
 import logging
 import os
 
+from dotenv import load_dotenv
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request  # kept for type hints in dispatch signature
 from starlette.responses import JSONResponse
@@ -19,9 +20,11 @@ from starlette.responses import JSONResponse
 from shared.fhir_hook import extract_fhir_from_payload
 from shared.logging_utils import redact_headers, safe_pretty_json, token_fingerprint
 
+load_dotenv()
+
 logger = logging.getLogger(__name__)
 
-LOG_FULL_PAYLOAD = os.getenv("LOG_FULL_PAYLOAD", "true").lower() == "true"
+LOG_FULL_PAYLOAD = os.getenv("LOG_FULL_PAYLOAD", "false").lower() == "true"
 
 def _load_valid_api_keys() -> set[str]:
     """
@@ -96,12 +99,16 @@ class ApiKeyMiddleware(BaseHTTPMiddleware):
                 original_method, parsed["method"],
             )
 
-        # Normalise proto-style role values in every message in the payload.
+        # Normalise proto-style role values and snake_case A2A ids in every
+        # message in the payload. Prompt Opinion variants and local scripts have
+        # used both message_id and messageId; the installed SDK requires messageId.
         # Prompt Opinion sends ROLE_USER / ROLE_AGENT; the a2a-sdk expects user / agent.
         def _fix_roles(node):
             if isinstance(node, dict):
                 if "role" in node and node["role"] in _ROLE_ALIASES:
                     node["role"] = _ROLE_ALIASES[node["role"]]
+                if "message_id" in node and "messageId" not in node:
+                    node["messageId"] = node.pop("message_id")
                 for v in node.values():
                     _fix_roles(v)
             elif isinstance(node, list):
@@ -162,9 +169,12 @@ class ApiKeyMiddleware(BaseHTTPMiddleware):
                         fhir_key,
                     )
                 if fhir_data:
-                    logger.info("FHIR_URL_FOUND value=%s",         fhir_data.get("fhirUrl", "[EMPTY]"))
-                    logger.info("FHIR_TOKEN_FOUND fingerprint=%s", token_fingerprint(fhir_data.get("fhirToken", "")))
-                    logger.info("FHIR_PATIENT_FOUND value=%s",     fhir_data.get("patientId", "[EMPTY]"))
+                    logger.info(
+                        "FHIR_CONTEXT_FOUND fhir_url_present=%s token=%s patient_id_present=%s",
+                        bool(fhir_data.get("fhirUrl")),
+                        token_fingerprint(fhir_data.get("fhirToken", "")),
+                        bool(fhir_data.get("patientId")),
+                    )
                 else:
                     logger.info("FHIR_NOT_FOUND_IN_PAYLOAD keys_checked=params.metadata,message.metadata")
 
@@ -282,12 +292,13 @@ class ApiKeyMiddleware(BaseHTTPMiddleware):
             from starlette.responses import Response as StarletteResponse
             headers = dict(response.headers)
             headers["content-length"] = str(len(resp_body))
+            headers.pop("content-type", None)
             # PO expects application/a2a+json, not application/json
             return StarletteResponse(
                 content=resp_body,
                 status_code=response.status_code,
                 headers=headers,
-                media_type=response.media_type,
+                media_type="application/a2a+json",
             )
 
         return response
