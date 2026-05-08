@@ -9,6 +9,7 @@ import {
   Play,
   ShieldCheck,
   Stethoscope,
+  Upload,
   Zap,
 } from 'lucide-react';
 
@@ -106,6 +107,120 @@ const PATIENTS = {
     ],
   },
 };
+
+/** Parse a FHIR R4 transaction Bundle into the frontend patient format. */
+function parseFhirBundle(bundle) {
+  const entries = bundle?.entry || [];
+  const get = (type) =>
+    entries
+      .filter((e) => e.resource?.resourceType === type)
+      .map((e) => e.resource);
+
+  // Patient demographics
+  const patient = get('Patient')[0];
+  if (!patient) throw new Error('No Patient resource found in bundle');
+  const nameObj = patient.name?.[0] || {};
+  const given = (nameObj.given || []).join(' ');
+  const family = nameObj.family || '';
+  const fullName = `${given} ${family}`.trim() || 'Imported Patient';
+  const birthDate = patient.birthDate || '';
+  const gender = patient.gender || 'unknown';
+  const age = birthDate
+    ? Math.floor((Date.now() - new Date(birthDate).getTime()) / (365.25 * 864e5))
+    : null;
+  const identity = age !== null ? `${age}${gender === 'female' ? 'F' : 'M'}` : gender;
+
+  // Conditions
+  const conditions = get('Condition');
+  const diagnosisNames = conditions.map(
+    (c) => c.code?.text || c.code?.coding?.[0]?.display || 'Unknown condition',
+  );
+
+  // Observations — extract key metrics
+  const observations = get('Observation');
+  function findObs(...loincCodes) {
+    return observations.find((o) =>
+      o.code?.coding?.some((c) => loincCodes.includes(c.code)),
+    );
+  }
+  const efObs = findObs('10230-1');
+  const egfrObs = findObs('48642-3');
+  const hba1cObs = findObs('4548-4');
+  const kObs = findObs('2823-3');
+  const bnpObs = findObs('30934-4');
+  const crObs = findObs('2160-0');
+
+  function val(obs) {
+    if (!obs?.valueQuantity) return null;
+    return { value: String(obs.valueQuantity.value), unit: obs.valueQuantity.unit || '' };
+  }
+  const efVal = val(efObs);
+  const egfrVal = val(egfrObs);
+  const hba1cVal = val(hba1cObs);
+  const kVal = val(kObs);
+
+  // Tone helper
+  function metricTone(label, value) {
+    const n = parseFloat(value);
+    if (Number.isNaN(n)) return 'stable';
+    if (label === 'LVEF' && n < 40) return 'critical';
+    if (label === 'eGFR' && n < 30) return 'critical';
+    if (label === 'eGFR' && n < 60) return 'warning';
+    if (label === 'HbA1c' && n > 7.5) return 'warning';
+    if (label === 'K+' && n > 5.0) return 'warning';
+    return 'stable';
+  }
+
+  const metrics = [];
+  if (efVal) metrics.push({ label: 'LVEF', value: `${efVal.value}%`, tone: metricTone('LVEF', efVal.value) });
+  if (egfrVal) metrics.push({ label: 'eGFR', value: egfrVal.value, tone: metricTone('eGFR', egfrVal.value) });
+  if (hba1cVal) metrics.push({ label: 'HbA1c', value: `${hba1cVal.value}%`, tone: metricTone('HbA1c', hba1cVal.value) });
+  if (kVal) metrics.push({ label: 'K+', value: kVal.value, tone: metricTone('K+', kVal.value) });
+
+  // Medications
+  const medRequests = get('MedicationRequest');
+  const meds = medRequests.map(
+    (m) =>
+      m.medicationCodeableConcept?.text ||
+      m.medicationCodeableConcept?.coding?.[0]?.display ||
+      'Unknown medication',
+  );
+
+  // Build headline from conditions
+  const headlineParts = [];
+  if (efObs) {
+    const ef = parseFloat(efVal?.value);
+    headlineParts.push(ef < 40 ? 'HFrEF' : ef >= 50 ? 'HFpEF' : 'HFmrEF');
+  }
+  if (egfrVal) {
+    const egfr = parseFloat(egfrVal.value);
+    if (egfr < 15) headlineParts.push('CKD Stage 5');
+    else if (egfr < 30) headlineParts.push('CKD Stage 4');
+    else if (egfr < 60) headlineParts.push('CKD Stage 3');
+  }
+  if (hba1cVal && parseFloat(hba1cVal.value) >= 6.5) headlineParts.push('T2DM');
+
+  // Build prompt for A2A
+  const promptParts = [`${age || ''} year old ${gender}`];
+  if (efVal) promptParts.push(`LVEF ${efVal.value}%`);
+  if (egfrVal) promptParts.push(`eGFR ${egfrVal.value}`);
+  if (hba1cVal) promptParts.push(`HbA1c ${hba1cVal.value}%`);
+  if (kVal) promptParts.push(`K+ ${kVal.value}`);
+  if (meds.length) promptParts.push(`on ${meds.join(', ')}`);
+
+  return {
+    shortName: fullName,
+    identity,
+    headline: headlineParts.length ? headlineParts.join(' + ') : 'Imported patient',
+    prompt: promptParts.join(', '),
+    diagnoses: diagnosisNames.length ? diagnosisNames : ['See FHIR data'],
+    metrics,
+    meds: meds.length ? meds : ['None recorded'],
+    ranking: [],
+    conflicts: [],
+    _imported: true,
+  };
+}
 
 function createRequestId() {
   if (globalThis.crypto?.randomUUID) {
@@ -266,14 +381,18 @@ function App() {
   const [completedSteps, setCompletedSteps] = useState([]);
   const [activeStep, setActiveStep] = useState(null);
   const [hasRun, setHasRun] = useState(false);
-  const [patientInput, setPatientInput] = useState(PATIENTS.patientA.prompt);
+  const [importedPatient, setImportedPatient] = useState(null);
   const [liveResult, setLiveResult] = useState(null);
   const [errorBanner, setErrorBanner] = useState(
     !AGENT_URL ? 'VITE_A2A_AGENT_URL is not configured' : A2A_API_KEY ? '' : 'VITE_A2A_API_KEY is not configured',
   );
   const timersRef = useRef([]);
+  const fileInputRef = useRef(null);
 
-  const selectedPatient = PATIENTS[selectedId];
+  const selectedPatient = importedPatient && selectedId === 'imported'
+    ? importedPatient
+    : PATIENTS[selectedId];
+  const patientPrompt = selectedPatient.prompt;
   const displayRanking = liveResult?.ranking || selectedPatient.ranking;
   const displayConflicts = liveResult?.conflicts || selectedPatient.conflicts;
   const displayTopPick = liveResult?.topPick || null;
@@ -306,7 +425,25 @@ function App() {
     if (patientId === selectedId) return;
     resetRunState();
     setSelectedId(patientId);
-    setPatientInput(PATIENTS[patientId].prompt);
+  }
+
+  function handleFileImport(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const bundle = JSON.parse(e.target.result);
+        const parsed = parseFhirBundle(bundle);
+        resetRunState();
+        setImportedPatient(parsed);
+        setSelectedId('imported');
+      } catch (err) {
+        setErrorBanner(`Import failed: ${err.message}`);
+      }
+    };
+    reader.readAsText(file);
+    event.target.value = '';
   }
 
   function runStatusAnimation() {
@@ -340,7 +477,7 @@ function App() {
 
     const animationPromise = runStatusAnimation();
     try {
-      const result = await sendA2ARequest(patientInput);
+      const result = await sendA2ARequest(patientPrompt);
       await animationPromise;
       setLiveResult(result);
     } catch (error) {
@@ -384,10 +521,34 @@ function App() {
                 {preset.shortName}
               </button>
             ))}
+            {importedPatient && (
+              <button
+                className={selectedId === 'imported' ? 'preset-button active' : 'preset-button'}
+                onClick={() => handlePatientChange('imported')}
+              >
+                {importedPatient.shortName}
+              </button>
+            )}
           </div>
         </div>
 
-        <PatientInput value={patientInput} onChange={setPatientInput} disabled={isRunning} />
+        <div className="rail-section">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".json"
+            style={{ display: 'none' }}
+            onChange={handleFileImport}
+          />
+          <button
+            className="import-button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isRunning}
+          >
+            <Upload size={16} />
+            Import FHIR Bundle
+          </button>
+        </div>
 
         <button className="run-button" onClick={runOrchestration} disabled={isRunning}>
           <Play size={17} fill="currentColor" />
@@ -449,20 +610,6 @@ function RunMeter({ progressPercent, isRunning, hasRun }) {
   );
 }
 
-function PatientInput({ value, onChange, disabled }) {
-  return (
-    <label className="patient-input-block">
-      <span className="strip-label">Patient input</span>
-      <textarea
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        disabled={disabled}
-        rows={6}
-        placeholder="Describe the patient summary for orchestration"
-      />
-    </label>
-  );
-}
 
 function PatientHeader({ patient }) {
   return (
