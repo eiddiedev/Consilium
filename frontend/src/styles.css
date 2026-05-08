@@ -426,6 +426,12 @@ h3 {
   border-radius: 24px;
 }
 
+.results-mode .patient-card,
+.results-mode .panel,
+.results-mode .decision-panel {
+  overflow: hidden;
+}
+
 .patient-card {
   display: flex;
   flex-direction: column;
@@ -562,7 +568,9 @@ h3 {
 
 .status-row.active {
   background: #e6fbf8;
-  box-shadow: inset 4px 0 0 #21cfc2;
+  box-shadow:
+    inset 4px 0 0 #21cfc2,
+    0 12px 28px rgba(33, 207, 194, 0.18);
   transform: translateX(4px);
 }
 
@@ -641,7 +649,7 @@ h3 {
 }
 
 .decision-panel.has-results {
-  grid-template-rows: 118px minmax(0, 1fr);
+  grid-template-rows: 0 minmax(0, 1fr);
 }
 
 .body-visual {
@@ -657,6 +665,7 @@ h3 {
 }
 
 .body-visual.fade-out {
+  display: none;
   opacity: 0;
   max-height: 0;
   padding: 0;
@@ -665,6 +674,7 @@ h3 {
 }
 
 .decision-content {
+  min-height: 0;
   transition: filter 500ms ease, opacity 500ms ease;
 }
 
@@ -677,6 +687,12 @@ h3 {
   filter: blur(0);
   opacity: 1;
   transition: filter 700ms ease 100ms, opacity 700ms ease 100ms;
+}
+
+.decision-content.results-visible .score-fill {
+  animation: score-grow 840ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(var(--rank-index) * 90ms + 160ms);
+  transform-origin: left center;
 }
 
 .clinical-plus-visual {
@@ -853,6 +869,109 @@ h3 {
   padding: 17px;
 }
 
+.results-mode .console-shell {
+  gap: 12px;
+  padding: 18px;
+}
+
+.results-mode .clinical-grid {
+  gap: 12px;
+}
+
+.results-mode .patient-card,
+.results-mode .panel {
+  padding: 14px;
+}
+
+.results-mode .patient-card {
+  gap: 9px;
+}
+
+.results-mode .patient-id {
+  font-size: 30px;
+}
+
+.results-mode .patient-id-row {
+  gap: 3px;
+  margin-top: 7px;
+  font-size: 12px;
+}
+
+.results-mode .diagnosis-row,
+.results-mode .med-list {
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.results-mode .diagnosis-row span,
+.results-mode .med-list span {
+  min-height: 20px;
+  padding: 2px 7px;
+  font-size: 10px;
+}
+
+.results-mode .metric-strip {
+  gap: 8px;
+}
+
+.results-mode .metric-cell {
+  min-height: 56px;
+  padding: 9px 10px;
+}
+
+.results-mode .metric-cell strong {
+  margin-top: 5px;
+  font-size: 19px;
+}
+
+.results-mode .medication-strip {
+  padding-top: 8px;
+}
+
+.results-mode .status-list {
+  gap: 7px;
+  margin-top: 12px;
+}
+
+.results-mode .status-row {
+  grid-template-columns: 34px minmax(0, 1fr) 22px;
+  gap: 9px;
+  min-height: 43px;
+  padding: 5px 8px;
+  border-radius: 14px;
+}
+
+.results-mode .step-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+}
+
+.results-mode .step-copy strong {
+  font-size: 11px;
+}
+
+.results-mode .step-copy span {
+  margin-top: 1px;
+  font-size: 10px;
+}
+
+.results-mode .panel-footer {
+  min-height: 26px;
+  padding: 5px 8px;
+  font-size: 10px;
+}
+
+.results-mode .panel-footer span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.results-mode .decision-content {
+  padding: 14px 16px;
+}
+
 .ranking-list {
   display: grid;
   gap: 8px;
@@ -1012,9 +1131,9 @@ h3 {
 .conflict-panel {
   display: grid;
   grid-template-columns: 270px minmax(0, 1fr);
-  gap: 16px;
+  gap: 14px;
   min-height: 132px;
-  padding: 18px;
+  padding: 14px 18px;
   border-radius: 24px;
 }
 
@@ -1027,10 +1146,21 @@ h3 {
   justify-items: start;
   gap: 10px;
   min-height: 76px;
-  padding: 16px;
+  padding: 14px 16px;
   border-radius: 20px;
   text-align: left;
   font-size: 13px;
+}
+
+.consensus-waiting span,
+.consensus-waiting small {
+  display: block;
+}
+
+.consensus-waiting small {
+  margin-top: 4px;
+  color: #8aa0b7;
+  font-size: 11px;
 }
 
 .consensus-waiting svg {
@@ -1038,19 +1168,26 @@ h3 {
   animation: spin-soft 1.1s linear infinite;
 }
 
-.conflict-grid {
+.conflict-results {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
+  gap: 10px;
+  min-width: 0;
+}
+
+.conflict-grid,
+.trace-list {
+  display: grid;
+  gap: 7px;
 }
 
 .conflict-item {
   display: flex;
   align-items: flex-start;
-  gap: 9px;
-  min-height: 76px;
-  padding: 14px;
-  border-radius: 20px;
+  gap: 8px;
+  min-height: 40px;
+  padding: 8px 10px;
+  border-radius: 15px;
   color: #31475e;
   background: #f5fbfb;
   animation: rise-in 520ms ease both;
@@ -1068,8 +1205,70 @@ h3 {
 }
 
 .conflict-item span {
-  font-size: 12px;
-  line-height: 1.35;
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 10.5px;
+  line-height: 1.2;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.trace-panel {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  padding: 9px;
+  border-radius: 16px;
+  background: #f5fbfb;
+}
+
+.trace-kicker {
+  color: #18a999;
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.trace-item {
+  display: grid;
+  grid-template-columns: 90px minmax(0, 1fr);
+  gap: 7px;
+  align-items: center;
+  min-height: 25px;
+  padding: 4px 7px;
+  border-radius: 12px;
+  color: #5e7088;
+  background: rgba(255, 255, 255, 0.68);
+  animation: rise-in 520ms ease both;
+  animation-delay: calc(var(--trace-index) * 80ms + 120ms);
+}
+
+.trace-item strong {
+  color: #172033;
+  font-size: 10.5px;
+}
+
+.trace-item span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10.5px;
+}
+
+.results-mode .conflict-panel {
+  min-height: 118px;
+  padding: 13px 16px;
+}
+
+.trace-item.consensus {
+  color: #156f67;
+  background: #e4fbf8;
+  box-shadow: inset 3px 0 0 #21cfc2;
+  animation-name: rise-in, consensus-pulse;
+  animation-duration: 520ms, 1.2s;
+  animation-delay: calc(var(--trace-index) * 80ms + 120ms), 620ms;
+  animation-fill-mode: both, both;
 }
 
 @keyframes pulse {
@@ -1098,6 +1297,25 @@ h3 {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes score-grow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes consensus-pulse {
+  0%,
+  100% {
+    box-shadow: inset 3px 0 0 #21cfc2, 0 0 0 rgba(33, 207, 194, 0);
+  }
+  45% {
+    box-shadow: inset 3px 0 0 #21cfc2, 0 0 0 5px rgba(33, 207, 194, 0.12);
   }
 }
 
@@ -1356,9 +1574,33 @@ h3 {
     padding: 14px;
   }
 
+  .conflict-results {
+    grid-template-columns: minmax(0, 1.05fr) minmax(260px, 0.95fr);
+    gap: 8px;
+  }
+
   .conflict-item {
-    min-height: 58px;
-    padding: 10px;
+    min-height: 38px;
+    padding: 7px 9px;
+  }
+
+  .trace-panel {
+    padding: 8px;
+  }
+
+  .trace-list {
+    gap: 6px;
+  }
+
+  .trace-item {
+    grid-template-columns: 82px minmax(0, 1fr);
+    min-height: 24px;
+    padding: 4px 6px;
+  }
+
+  .trace-item strong,
+  .trace-item span {
+    font-size: 10px;
   }
 }
 
@@ -1394,7 +1636,8 @@ h3 {
 
   .clinical-grid,
   .conflict-panel,
-  .conflict-grid {
+  .conflict-grid,
+  .conflict-results {
     grid-template-columns: 1fr;
   }
 

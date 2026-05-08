@@ -31,13 +31,17 @@ If the text input lacks enough patient-specific information, Consilium refuses t
 
 ## Live Integration
 
+**Live frontend demo:** https://frontend-2tuznyz3p-eiddies-projects-d06b2ce6.vercel.app
+
+![Consilium frontend clinical workspace](docs/frontend-demo.png)
+
 | Layer | Current Implementation |
 |---|---|
 | A2A Backend | Cloud Run service serving `orchestrator.app:a2a_app` |
 | Platform | Prompt Opinion BYO A2A agent connection |
 | Patient Context | Prompt Opinion FHIR context extension + SMART scopes |
 | Specialist Models | DeepSeek V4 Flash through LiteLLM |
-| Frontend Demo | React/Vite single-page clinical workspace in `frontend/` |
+| Frontend Demo | React/Vite clinical workspace deployed on Vercel |
 | Local Fallback | Direct free-text patient summary when no FHIR context is present |
 
 The agent card advertises the official Prompt Opinion FHIR extension:

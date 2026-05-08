@@ -29,6 +29,12 @@ const A2A_API_KEY = import.meta.env.VITE_A2A_API_KEY || '';
 const REQUEST_TIMEOUT_MS = 60000;
 const ORCHESTRATION_SUFFIX = 'Run the full multi-specialty orchestration.';
 const TIMED_PIPELINE_STEPS = PIPELINE_STEPS.filter((step) => Number.isFinite(step.delay));
+const DEFAULT_TRACE = [
+  { specialty: 'Cardiology', text: 'Specialist recommendation captured' },
+  { specialty: 'Nephrology', text: 'Renal safety reviewed' },
+  { specialty: 'Endocrinology', text: 'Metabolic therapy reviewed' },
+  { specialty: 'Consensus', text: 'Deterministic clinical ranking applied', consensus: true },
+];
 
 const PATIENTS = {
   patientA: {
@@ -70,6 +76,12 @@ const PATIENTS = {
       { icon: Check, tone: 'good', text: 'Start SGLT2i — triple benefit for HF + CKD + T2DM' },
       { icon: AlertTriangle, tone: 'warn', text: 'ACEi + CKD Stage 4 — monitor K+ closely (currently 5.1)' },
     ],
+    trace: [
+      { specialty: 'Cardiology', text: 'Preserve HF mortality benefit' },
+      { specialty: 'Nephrology', text: 'eGFR 28 triggers renal safety override' },
+      { specialty: 'Endocrinology', text: 'Replace Metformin with SGLT2i' },
+      { specialty: 'Consensus', text: 'Stop Metformin first; align on SGLT2i', consensus: true },
+    ],
   },
   patientB: {
     shortName: 'Maria Santos',
@@ -109,6 +121,12 @@ const PATIENTS = {
       { icon: Check, tone: 'good', text: 'No Metformin — patient is not on Metformin' },
       { icon: Check, tone: 'good', text: 'No CKD or T2DM — fewer cross-specialty conflicts' },
       { icon: Check, tone: 'good', text: 'HFpEF managed with carvedilol + lisinopril' },
+    ],
+    trace: [
+      { specialty: 'Cardiology', text: 'HFpEF remains the active priority' },
+      { specialty: 'Nephrology', text: 'No CKD safety blocker detected' },
+      { specialty: 'Endocrinology', text: 'No diabetes therapy required' },
+      { specialty: 'Consensus', text: 'Continue HF management; no false CKD/DM conflict', consensus: true },
     ],
   },
 };
@@ -223,6 +241,7 @@ function parseFhirBundle(bundle) {
     meds: meds.length ? meds : ['None recorded'],
     ranking: [],
     conflicts: [],
+    trace: DEFAULT_TRACE,
     _imported: true,
   };
 }
@@ -408,6 +427,7 @@ function App() {
   const patientPrompt = selectedPatient.prompt;
   const displayRanking = liveResult?.ranking || selectedPatient.ranking;
   const displayConflicts = liveResult?.conflicts || selectedPatient.conflicts;
+  const displayTrace = selectedPatient.trace || DEFAULT_TRACE;
   const displayTopPick = liveResult?.topPick || null;
   const rawAgentText = liveResult?.source === 'raw' ? liveResult.rawText : '';
   const usingDemoData = Boolean(errorBanner && hasRun && !liveResult?.ranking && !rawAgentText);
@@ -508,7 +528,7 @@ function App() {
   }
 
   return (
-    <main className="app-shell">
+    <main className={hasRun ? 'app-shell results-mode' : 'app-shell'}>
       <aside className="side-rail" aria-label="Console controls">
         <div className="brand-block">
           <div className="brand-mark">
@@ -615,7 +635,7 @@ function App() {
           />
         </section>
 
-        <ConflictPanel conflicts={displayConflicts} hasRun={hasRun} isRunning={isRunning} />
+        <ConflictPanel conflicts={displayConflicts} trace={displayTrace} hasRun={hasRun} isRunning={isRunning} />
       </section>
     </main>
   );
@@ -804,7 +824,7 @@ function DecisionPanel({ ranking, topPick, rawText, hasRun, isRunning, usingDemo
   );
 }
 
-function ConflictPanel({ conflicts, hasRun, isRunning }) {
+function ConflictPanel({ conflicts, trace, hasRun, isRunning }) {
   return (
     <section className={hasRun ? 'conflict-panel resolved' : 'conflict-panel'} aria-label="Resolved conflicts">
       <div className="conflict-heading">
@@ -817,25 +837,46 @@ function ConflictPanel({ conflicts, hasRun, isRunning }) {
       {!hasRun && (
         <div className="consensus-waiting">
           <CircleDot size={18} />
-          <span>
-            {isRunning
-              ? 'Waiting for all agents to finish before publishing the unified action set.'
-              : 'Run orchestration to generate the cross-specialty consensus.'}
-          </span>
+          <div>
+            <span>
+              {isRunning
+                ? 'Waiting for all agents to finish before publishing the unified action set.'
+                : 'Run orchestration to generate the cross-specialty consensus.'}
+            </span>
+            <small>Run orchestration to reveal the reconciliation trace.</small>
+          </div>
         </div>
       )}
 
       {hasRun && (
-        <div className="conflict-grid">
-          {conflicts.map((conflict, index) => {
-            const Icon = conflict.icon;
-            return (
-              <div className={`conflict-item ${conflict.tone}`} key={conflict.text} style={{ '--conflict-index': index }}>
-                <Icon size={20} />
-                <span>{conflict.text}</span>
-              </div>
-            );
-          })}
+        <div className="conflict-results">
+          <div className="conflict-grid">
+            {conflicts.map((conflict, index) => {
+              const Icon = conflict.icon;
+              return (
+                <div className={`conflict-item ${conflict.tone}`} key={conflict.text} style={{ '--conflict-index': index }}>
+                  <Icon size={20} />
+                  <span>{conflict.text}</span>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="trace-panel" aria-label="Clinical conflict trace">
+            <span className="trace-kicker">Clinical conflict trace</span>
+            <div className="trace-list">
+              {trace.map((item, index) => (
+                <div
+                  className={item.consensus ? 'trace-item consensus' : 'trace-item'}
+                  key={`${item.specialty}-${item.text}`}
+                  style={{ '--trace-index': index }}
+                >
+                  <strong>{item.specialty}</strong>
+                  <span>{item.text}</span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       )}
     </section>
