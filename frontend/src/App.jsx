@@ -525,7 +525,7 @@ function App() {
 
           <button className="run-button" onClick={runOrchestration} disabled={isRunning}>
             <Play size={17} fill="currentColor" />
-            {isWaitingForBackend ? 'Waiting for Agent...' : isRunning ? 'Orchestrating...' : 'Run Orchestration'}
+            {isRunning ? 'Orchestrating...' : 'Run Orchestration'}
           </button>
         </div>
 
