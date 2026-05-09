@@ -531,9 +531,7 @@ function App() {
     <main className={hasRun ? 'app-shell results-mode' : 'app-shell'}>
       <aside className="side-rail" aria-label="Console controls">
         <div className="brand-block">
-          <div className="brand-mark">
-            <Dna size={24} />
-          </div>
+          <img className="brand-mark" src="/consilium-icon.png" alt="" />
           <div>
             <strong>Consilium</strong>
             <span>Clinical AI</span>

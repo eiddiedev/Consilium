@@ -1,5 +1,9 @@
 # Consilium
 
+<p align="center">
+  <img src="docs/consilium-logo.png" alt="Consilium Clinical AI logo" width="220" />
+</p>
+
 > **Multi-specialty clinical decision support for complex chronic disease patients.**
 > Consilium reduces guideline conflict, medication-safety risk, and physician decision fatigue by combining specialist LLM agents with deterministic clinical ranking.
 
@@ -31,7 +35,7 @@ If the text input lacks enough patient-specific information, Consilium refuses t
 
 ## Live Integration
 
-**Live frontend demo:** https://frontend-2tuznyz3p-eiddies-projects-d06b2ce6.vercel.app
+**Live frontend demo:** https://frontend-feb0iff2s-eiddies-projects-d06b2ce6.vercel.app
 
 ![Consilium frontend clinical workspace](docs/frontend-demo.png)
 
@@ -57,7 +61,7 @@ Prompt Opinion / React Demo
         |
         | A2A message/send
         v
-ASM Orchestrator
+Consilium Orchestrator
         |
         | FHIR context if available
         v

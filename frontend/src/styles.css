@@ -67,14 +67,12 @@ button {
 }
 
 .brand-mark {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 16px;
-  color: #ffffff;
-  background: linear-gradient(135deg, #23d1c5, #18b9a9);
-  box-shadow: 0 14px 28px rgba(24, 185, 169, 0.26);
+  display: block;
+  width: 46px;
+  height: 46px;
+  border-radius: 15px;
+  object-fit: cover;
+  box-shadow: 0 14px 28px rgba(24, 185, 169, 0.16);
 }
 
 .brand-block strong,
