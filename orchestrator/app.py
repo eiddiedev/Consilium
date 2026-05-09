@@ -17,7 +17,7 @@ PO_PLATFORM_BASE_URL = os.getenv("PO_PLATFORM_BASE_URL", "https://app.promptopin
 
 a2a_app = create_a2a_app(
     agent=root_agent,
-    name="asm_orchestrator",
+    name="Consilium",
     description=(
         "Multi-specialty clinical orchestrator for HF+T2DM+CKD patients. "
         "Routes to cardiology, nephrology, and endocrinology specialist agents, "
@@ -36,13 +36,80 @@ a2a_app = create_a2a_app(
     skills=[
         AgentSkill(
             id="multi-specialty-orchestration",
-            name="multi-specialty-orchestration",
+            name="Multi-Specialty Orchestration",
             description=(
                 "Orchestrates cardiology, nephrology, and endocrinology specialists "
                 "for complex chronic disease patients (HF+T2DM+CKD). "
                 "Scores recommendations with TOPSIS and provides explainable clinical decisions."
             ),
+            examples=[
+                "Run the full multi-specialty orchestration for this patient.",
+                "Resolve guideline conflicts for a patient with HFrEF, CKD, and T2DM.",
+            ],
+            input_modes=["text/plain"],
+            output_modes=["text/markdown"],
             tags=["clinical", "orchestrator", "multi-specialty", "HF", "T2DM", "CKD", "TOPSIS"],
+        ),
+        AgentSkill(
+            id="fhir-clinical-context-summary",
+            name="FHIR Clinical Context Summary",
+            description=(
+                "Reads Prompt Opinion FHIR context when available and summarizes "
+                "patient demographics, active conditions, medications, and observations "
+                "before specialist review."
+            ),
+            examples=[
+                "Use the connected FHIR patient context to summarize active problems and medications.",
+                "Build a clinical summary from Patient, Condition, MedicationRequest, and Observation resources.",
+            ],
+            input_modes=["text/plain"],
+            output_modes=["text/markdown"],
+            tags=["FHIR", "SMART-on-FHIR", "clinical-summary", "patient-context"],
+        ),
+        AgentSkill(
+            id="specialist-consult-panel",
+            name="Specialist Consult Panel",
+            description=(
+                "Invokes structured cardiology, nephrology, and endocrinology consult agents "
+                "and validates each specialist recommendation before reconciliation."
+            ),
+            examples=[
+                "Ask the cardiology, nephrology, and endocrinology agents for structured recommendations.",
+                "Generate specialty-specific treatment recommendations with risks and citations.",
+            ],
+            input_modes=["text/plain"],
+            output_modes=["text/markdown"],
+            tags=["cardiology", "nephrology", "endocrinology", "consult"],
+        ),
+        AgentSkill(
+            id="medication-safety-reconciliation",
+            name="Medication Safety Reconciliation",
+            description=(
+                "Detects cross-specialty medication conflicts such as metformin in advanced CKD, "
+                "hyperkalemia risk, and overlapping HF/diabetes treatment opportunities."
+            ),
+            examples=[
+                "Identify medication conflicts for a patient with eGFR below 30.",
+                "Explain whether metformin, MRA, ACEi/ARB, or SGLT2i recommendations conflict.",
+            ],
+            input_modes=["text/plain"],
+            output_modes=["text/markdown"],
+            tags=["medication-safety", "CKD", "metformin", "hyperkalemia", "SGLT2i"],
+        ),
+        AgentSkill(
+            id="topsis-clinical-ranking",
+            name="TOPSIS Clinical Ranking",
+            description=(
+                "Ranks validated specialist recommendations with deterministic TOPSIS scoring "
+                "across evidence strength, patient match, medication risk, and guideline priority."
+            ),
+            examples=[
+                "Rank the specialist recommendations and explain the top clinical priority.",
+                "Show the TOPSIS scores for cardiology, nephrology, and endocrinology recommendations.",
+            ],
+            input_modes=["text/plain"],
+            output_modes=["text/markdown"],
+            tags=["TOPSIS", "clinical-ranking", "evidence", "guidelines", "explainability"],
         ),
     ],
 )

@@ -54,6 +54,14 @@ The agent card advertises the official Prompt Opinion FHIR extension:
 https://app.promptopinion.ai/schemas/a2a/v1/fhir-context
 ```
 
+It also advertises five concrete A2A skills so the marketplace entry reflects the real workflow:
+
+- `Multi-Specialty Orchestration`
+- `FHIR Clinical Context Summary`
+- `Specialist Consult Panel`
+- `Medication Safety Reconciliation`
+- `TOPSIS Clinical Ranking`
+
 ## Architecture
 
 ```text
