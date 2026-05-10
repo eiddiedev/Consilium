@@ -7,7 +7,7 @@
 > **Multi-specialty clinical decision support for complex chronic disease patients.**
 > Consilium reduces guideline conflict, medication-safety risk, and physician decision fatigue by combining specialist LLM agents with deterministic clinical ranking.
 
-**Built for [Agents Assemble: The Healthcare AI Endgame](https://agents-assemble.devpost.com/).**
+Originally developed for an agent interoperability challenge, Consilium is designed as a general-purpose clinical AI system that can run as a deployed A2A agent, consume FHIR context when available, and support standalone clinical demos.
 
 ---
 
@@ -92,7 +92,7 @@ FHIR patient summary
 
 ### Architecture Reality
 
-This version implements **parallel specialist consult + deterministic reconciliation**. The agents do not yet conduct a multi-round negotiation with each other. That is intentional for the hackathon build: it keeps the decision path inspectable, reliable, and fast enough for live A2A demos. A future version should add a negotiation loop where specialists exchange rationale and revise recommendations before TOPSIS ranking.
+This version implements **parallel specialist consult + deterministic reconciliation**. The agents do not yet conduct a multi-round negotiation with each other. That is intentional for the current release: it keeps the decision path inspectable, reliable, and fast enough for live A2A demos. A future version should add a negotiation loop where specialists exchange rationale and revise recommendations before TOPSIS ranking.
 
 ## Clinical Scoring Method
 
@@ -267,7 +267,7 @@ Consilium/
 
 - Current specialist agents run in parallel and do not yet negotiate with each other in a multi-turn deliberation loop.
 - The system has not been validated against clinical outcomes or physician time-motion studies.
-- Guideline mappings are intentionally narrow for the hackathon scope: HF, CKD, and diabetes medication conflicts.
+- Guideline mappings are intentionally narrow in the current release: HF, CKD, and diabetes medication conflicts.
 - This is advisory clinical decision support, not autonomous prescribing software.
 
 ## Evidence Sources
