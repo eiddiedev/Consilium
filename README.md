@@ -35,7 +35,7 @@ If the text input lacks enough patient-specific information, Consilium refuses t
 
 ## Live Integration
 
-**Live frontend demo:** https://frontend-feb0iff2s-eiddies-projects-d06b2ce6.vercel.app
+**Live frontend demo:** https://asm-healthcare-agent.vercel.app
 
 **Deployed A2A backend:** https://consilium-1085209557278.us-central1.run.app
 
