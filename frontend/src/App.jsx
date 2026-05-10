@@ -24,8 +24,9 @@ const PIPELINE_STEPS = [
   { id: 'format', label: 'Formatting Output', icon: ShieldCheck },
 ];
 
-const AGENT_URL = import.meta.env.VITE_A2A_AGENT_URL || '';
-const A2A_API_KEY = import.meta.env.VITE_A2A_API_KEY || '';
+const AGENT_URL =
+  import.meta.env.VITE_A2A_AGENT_URL || 'https://consilium-1085209557278.us-central1.run.app';
+const A2A_API_KEY = import.meta.env.VITE_A2A_API_KEY || 'test-key-123';
 const REQUEST_TIMEOUT_MS = 60000;
 const ORCHESTRATION_SUFFIX = 'Run the full multi-specialty orchestration.';
 const TIMED_PIPELINE_STEPS = PIPELINE_STEPS.filter((step) => Number.isFinite(step.delay));
