@@ -878,15 +878,15 @@ h3 {
 
 .results-mode .patient-card,
 .results-mode .panel {
-  padding: 14px;
+  padding: 12px;
 }
 
 .results-mode .patient-card {
-  gap: 9px;
+  gap: 7px;
 }
 
 .results-mode .patient-id {
-  font-size: 30px;
+  font-size: 28px;
 }
 
 .results-mode .patient-id-row {
@@ -898,14 +898,14 @@ h3 {
 .results-mode .diagnosis-row,
 .results-mode .med-list {
   gap: 4px;
-  margin-top: 8px;
+  margin-top: 6px;
 }
 
 .results-mode .diagnosis-row span,
 .results-mode .med-list span {
-  min-height: 20px;
-  padding: 2px 7px;
-  font-size: 10px;
+  min-height: 18px;
+  padding: 1px 6px;
+  font-size: 9.5px;
 }
 
 .results-mode .metric-strip {
@@ -913,35 +913,35 @@ h3 {
 }
 
 .results-mode .metric-cell {
-  min-height: 56px;
-  padding: 9px 10px;
+  min-height: 50px;
+  padding: 7px 9px;
 }
 
 .results-mode .metric-cell strong {
-  margin-top: 5px;
-  font-size: 19px;
+  margin-top: 4px;
+  font-size: 18px;
 }
 
 .results-mode .medication-strip {
-  padding-top: 8px;
+  padding-top: 6px;
 }
 
 .results-mode .status-list {
-  gap: 7px;
-  margin-top: 12px;
+  gap: 6px;
+  margin-top: 10px;
 }
 
 .results-mode .status-row {
-  grid-template-columns: 34px minmax(0, 1fr) 22px;
-  gap: 9px;
-  min-height: 43px;
-  padding: 5px 8px;
-  border-radius: 14px;
+  grid-template-columns: 32px minmax(0, 1fr) 20px;
+  gap: 8px;
+  min-height: 39px;
+  padding: 4px 7px;
+  border-radius: 13px;
 }
 
 .results-mode .step-icon {
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  height: 32px;
   border-radius: 12px;
 }
 
@@ -955,9 +955,9 @@ h3 {
 }
 
 .results-mode .panel-footer {
-  min-height: 26px;
-  padding: 5px 8px;
-  font-size: 10px;
+  min-height: 22px;
+  padding: 4px 7px;
+  font-size: 9.5px;
 }
 
 .results-mode .panel-footer span {
