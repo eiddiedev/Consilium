@@ -35,6 +35,32 @@ const DEFAULT_TRACE = [
   { specialty: 'Endocrinology', text: 'Metabolic therapy reviewed' },
   { specialty: 'Consensus', text: 'Deterministic clinical ranking applied', consensus: true },
 ];
+const DEFAULT_EXPLAINABILITY = [
+  {
+    specialty: 'Cardiology',
+    evidence: 'High',
+    patientMatch: 'Reviewed',
+    safety: 'Monitored',
+    guidelinePriority: 'High',
+    reason: 'HF recommendation captured; final priority depends on patient-specific safety flags.',
+  },
+  {
+    specialty: 'Nephrology',
+    evidence: 'High',
+    patientMatch: 'Reviewed',
+    safety: 'Reviewed',
+    guidelinePriority: 'High',
+    reason: 'Renal risk reviewed before deterministic ranking is applied.',
+  },
+  {
+    specialty: 'Endocrinology',
+    evidence: 'High',
+    patientMatch: 'Reviewed',
+    safety: 'Reviewed',
+    guidelinePriority: 'High',
+    reason: 'Metabolic therapy reviewed against medications and observations.',
+  },
+];
 
 const PATIENTS = {
   patientA: {
@@ -82,6 +108,32 @@ const PATIENTS = {
       { specialty: 'Endocrinology', text: 'Replace Metformin with SGLT2i' },
       { specialty: 'Consensus', text: 'Stop Metformin first; align on SGLT2i', consensus: true },
     ],
+    explainability: [
+      {
+        specialty: 'Nephrology',
+        evidence: 'High',
+        patientMatch: 'Very High',
+        safety: 'Critical',
+        guidelinePriority: 'High',
+        reason: 'eGFR 28 makes Metformin an immediate medication-safety conflict.',
+      },
+      {
+        specialty: 'Cardiology',
+        evidence: 'High',
+        patientMatch: 'High',
+        safety: 'Monitor',
+        guidelinePriority: 'High',
+        reason: 'HFrEF therapy remains important, but K+ and renal function require monitoring.',
+      },
+      {
+        specialty: 'Endocrinology',
+        evidence: 'High',
+        patientMatch: 'High',
+        safety: 'Medium',
+        guidelinePriority: 'High',
+        reason: 'Diabetes therapy should move away from Metformin and toward cardiorenal benefit.',
+      },
+    ],
   },
   patientB: {
     shortName: 'Maria Santos',
@@ -127,6 +179,32 @@ const PATIENTS = {
       { specialty: 'Nephrology', text: 'No CKD safety blocker detected' },
       { specialty: 'Endocrinology', text: 'No diabetes therapy required' },
       { specialty: 'Consensus', text: 'Continue HF management; no false CKD/DM conflict', consensus: true },
+    ],
+    explainability: [
+      {
+        specialty: 'Cardiology',
+        evidence: 'High',
+        patientMatch: 'Very High',
+        safety: 'Stable',
+        guidelinePriority: 'High',
+        reason: 'Heart failure is the active condition; no renal or diabetes conflict overrides it.',
+      },
+      {
+        specialty: 'Endocrinology',
+        evidence: 'Scoped',
+        patientMatch: 'Low',
+        safety: 'Stable',
+        guidelinePriority: 'Low',
+        reason: 'No diabetes therapy is indicated, so endocrine priority stays low.',
+      },
+      {
+        specialty: 'Nephrology',
+        evidence: 'Scoped',
+        patientMatch: 'Low',
+        safety: 'Stable',
+        guidelinePriority: 'Low',
+        reason: 'Normal eGFR means no CKD-specific medication conflict is detected.',
+      },
     ],
   },
 };
@@ -242,6 +320,7 @@ function parseFhirBundle(bundle) {
     ranking: [],
     conflicts: [],
     trace: DEFAULT_TRACE,
+    explainability: DEFAULT_EXPLAINABILITY,
     _imported: true,
   };
 }
@@ -428,6 +507,7 @@ function App() {
   const displayRanking = liveResult?.ranking || selectedPatient.ranking;
   const displayConflicts = liveResult?.conflicts || selectedPatient.conflicts;
   const displayTrace = selectedPatient.trace || DEFAULT_TRACE;
+  const displayExplainability = selectedPatient.explainability || DEFAULT_EXPLAINABILITY;
   const displayTopPick = liveResult?.topPick || null;
   const rawAgentText = liveResult?.source === 'raw' ? liveResult.rawText : '';
   const usingDemoData = Boolean(errorBanner && hasRun && !liveResult?.ranking && !rawAgentText);
@@ -627,6 +707,7 @@ function App() {
             ranking={displayRanking}
             topPick={displayTopPick}
             rawText={rawAgentText}
+            explainability={displayExplainability}
             hasRun={hasRun}
             isRunning={isRunning}
             usingDemoData={usingDemoData}
@@ -748,7 +829,7 @@ function AgentStatusPanel({ isRunning, hasRun, completedStepIds }) {
   );
 }
 
-function DecisionPanel({ ranking, topPick, rawText, hasRun, isRunning, usingDemoData }) {
+function DecisionPanel({ ranking, topPick, rawText, explainability, hasRun, isRunning, usingDemoData }) {
   return (
     <section className={hasRun ? 'decision-panel has-results' : 'decision-panel'} aria-label="TOPSIS ranking results">
       <div className={`body-visual ${hasRun ? 'fade-out' : ''}`} aria-hidden="true">
@@ -814,6 +895,28 @@ function DecisionPanel({ ranking, topPick, rawText, hasRun, isRunning, usingDemo
                   </div>
                 </article>
               ))}
+              {explainability?.length > 0 && (
+                <div className="explainability-panel" aria-label="Explainability matrix">
+                  <div className="explainability-heading">
+                    <span>Scoring rationale</span>
+                    <small>Agents recommend; code ranks deterministically.</small>
+                  </div>
+                  <div className="explainability-list">
+                    {explainability.map((item, index) => (
+                      <div className="explainability-row" key={item.specialty} style={{ '--explain-index': index }}>
+                        <strong>{item.specialty}</strong>
+                        <div className="score-badges" aria-label={`${item.specialty} scoring dimensions`}>
+                          <span>Evd {item.evidence}</span>
+                          <span>Match {item.patientMatch}</span>
+                          <span>Safety {item.safety}</span>
+                          <span>Guide {item.guidelinePriority}</span>
+                        </div>
+                        <p>{item.reason}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )
         )}

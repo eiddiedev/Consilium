@@ -37,6 +37,10 @@ If the text input lacks enough patient-specific information, Consilium refuses t
 
 **Live frontend demo:** https://frontend-feb0iff2s-eiddies-projects-d06b2ce6.vercel.app
 
+**Deployed A2A backend:** https://consilium-1085209557278.us-central1.run.app
+
+**Public agent card:** https://consilium-1085209557278.us-central1.run.app/.well-known/agent-card.json
+
 ![Consilium frontend clinical workspace](docs/frontend-demo.png)
 
 | Layer | Current Implementation |
@@ -142,7 +146,7 @@ The renal-safety override takes precedence because eGFR <30 + Metformin is an im
 
 ### Case C: Insufficient Patient Context
 
-**Input:** `Run the full multi-specialty orchestration for this patient.`
+**Prompt Opinion demo prompt:** `Run the full multi-specialty orchestration for this patient: elderly male with diabetes.`
 
 **Output:** Consilium returns `More Patient Information Needed` and does not call specialist agents or TOPSIS. This prevents the model from hallucinating a clinical plan when neither FHIR context nor a meaningful patient summary is available.
 
@@ -155,6 +159,12 @@ The renal-safety override takes precedence because eGFR <30 + Metformin is an im
 - **Per-specialist fallback:** one failed or timed-out specialist falls back deterministically without failing the whole task.
 - **A2A compatibility:** middleware accepts `SendMessage`, `SendStreamingMessage`, `ROLE_USER`, `ROLE_AGENT`, `messageId`, and `message_id` variants.
 - **CORS-ready:** browser demos can call the deployed A2A service.
+
+## Clinical Scope Boundary
+
+**Current scope:** heart failure, chronic kidney disease, diabetes, medication conflict reconciliation, and advisory clinical decision support.
+
+**Out of scope:** emergency diagnosis, autonomous prescribing, replacing physician judgment, and claims of validated clinical outcome improvement.
 
 ## Tech Stack
 
