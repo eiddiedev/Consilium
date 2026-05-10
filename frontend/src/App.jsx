@@ -902,7 +902,7 @@ function DecisionPanel({ ranking, topPick, rawText, explainability, hasRun, isRu
                     <small>Agents recommend; code ranks deterministically.</small>
                   </div>
                   <div className="explainability-list">
-                    {explainability.map((item, index) => (
+                    {explainability.slice(0, 1).map((item, index) => (
                       <div className="explainability-row" key={item.specialty} style={{ '--explain-index': index }}>
                         <strong>{item.specialty}</strong>
                         <div className="score-badges" aria-label={`${item.specialty} scoring dimensions`}>
